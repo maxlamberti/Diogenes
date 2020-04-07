@@ -13,16 +13,17 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-
 find_package(Qt5 COMPONENTS Widgets REQUIRED)
 find_package(AWSSDK REQUIRED COMPONENTS ec2)
 
 
 add_executable(broke-sage-notebooks
-  main.cpp
-  mainwindow.cpp
-  mainwindow.h
-  mainwindow.ui
+    main.cpp
+    mainwindow.cpp
+    mainwindow.h
+    mainwindow.ui
+    awsutils.cpp
+    awsutils.hpp
 )
 
 
