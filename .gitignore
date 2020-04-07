@@ -3,6 +3,9 @@
 src/build*
 src/debug*
 CMakeLists.txt.user
+.idea
+*_autogen
+CMakeFiles
 
 # Prerequisites
 *.d
