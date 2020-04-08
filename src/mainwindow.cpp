@@ -1,3 +1,5 @@
+#include <map>
+#include <string>
 #include <iostream>
 #include <algorithm>
 #include <aws/core/Aws.h>
@@ -19,30 +21,38 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow) {
 
-    Aws::SDKOptions options;
-    Aws::InitAPI(options);
-    {
-        AwsUtils aws_utils;
-        auto all_instance_types = aws_utils.GetSpotInstanceTypes();
-//        print_vector(all_instance_types);
+//    Aws::SDKOptions options;
+//    Aws::InitAPI(options);
 
-        ui->setupUi(this);
+    AwsUtils aws_utils;
+    auto all_instance_types = aws_utils.getSpotInstanceTypes();
 
-        ui->comboBox->setStyleSheet("combobox-popup: 0;");
+    ui->setupUi(this);
 
-        connect(ui->pushButton, SIGNAL(released()), this, SLOT(launch_button_pressed()));
+    ui->comboBox->setStyleSheet("combobox-popup: 0;");
 
-        for (auto val : all_instance_types) {
-            QString s(val.c_str());
-            ui->comboBox->addItem(s);
-        }
+    connect(ui->pushButton, SIGNAL(released()), this, SLOT(launchButtonPressed()));
+    connect(ui->comboBox, SIGNAL(currentTextChanged(QString)), this, SLOT(comboboxItemChanged(QString)));
+
+    for (auto val : all_instance_types) {
+        QString s(val.c_str());
+        ui->comboBox->addItem(s);
     }
-    Aws::ShutdownAPI(options);
+
+//    Aws::ShutdownAPI(options);
 }
 
-void MainWindow::launch_button_pressed() {
+void MainWindow::launchButtonPressed() {
 
     std::cout << "Launching instance" << std::endl;
+    this->aws_utils.launchSpotInstance();
+
+}
+
+void MainWindow::comboboxItemChanged(QString selection){
+
+//    auto reverse_instance_type_mapper = Aws::EC2::Model::InstanceTypeMapper::GetInstanceTypeForName;
+    this->aws_utils.notebookConfig.instanceType = Aws::EC2::Model::InstanceTypeMapper::GetInstanceTypeForName(selection.toStdString().c_str());
 
 }
 

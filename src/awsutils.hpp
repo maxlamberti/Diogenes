@@ -2,6 +2,7 @@
 #define BROKE_SAGE_NOTEBOOKS_AWSUTILS_HPP
 
 
+#include <map>
 #include <string>
 #include <iostream>
 #include <algorithm>
@@ -9,10 +10,8 @@
 #include <aws/ec2/EC2Client.h>
 #include <aws/ec2/EC2Request.h>
 #include <aws/ec2/model/DescribeImagesRequest.h>
-#include <aws/ec2/model/RequestSpotInstancesRequest.h>
 #include <aws/ec2/model/DescribeInstanceTypesRequest.h>
 #include <aws/ec2/model/DescribeSpotInstanceRequestsRequest.h>
-
 
 
 class AwsUtils {
@@ -23,10 +22,18 @@ class AwsUtils {
   template <typename T> std::vector<Aws::String> MapEnumVecToSortedStrVec(std::vector<T> input_vector, Aws::String (*mapper)(T));
 
  public:
+  struct NotebookConfig {
+      std::string imageId, keyName;
+      Aws::EC2::Model::InstanceType instanceType;
+  };
   AwsUtils();
   ~AwsUtils();
-  void SetClientConfiguration(Aws::Client::ClientConfiguration client_config);
-  std::vector<Aws::String> GetSpotInstanceTypes();
+  std::string instanceType;
+  NotebookConfig notebookConfig;
+//  std::map<std::string, std::string> notebookConfig;
+  void setClientConfiguration(Aws::Client::ClientConfiguration client_config);
+  std::vector<Aws::String> getSpotInstanceTypes();
+  void launchSpotInstance();
 
 };
 
