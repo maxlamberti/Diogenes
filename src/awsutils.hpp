@@ -20,6 +20,9 @@ class AwsUtils {
   Aws::SDKOptions SDKOptions;
   Aws::EC2::EC2Client EC2Client;
   template <typename T> std::vector<Aws::String> MapEnumVecToSortedStrVec(std::vector<T> input_vector, Aws::String (*mapper)(T));
+  Aws::Vector<Aws::String> CastToAwsStringVector(const std::string& str);
+  Aws::EC2::Model::SummaryStatus GetInstanceStatus(const std::string& instance_id, const Aws::EC2::EC2Client& ec2_client);
+  std::string GetInstanceId(const Aws::Vector<Aws::String>& request_id, const Aws::EC2::EC2Client& ec2_client);
 
  public:
   struct NotebookConfig {
@@ -30,7 +33,6 @@ class AwsUtils {
   ~AwsUtils();
   std::string instanceType;
   NotebookConfig notebookConfig;
-//  std::map<std::string, std::string> notebookConfig;
   void setClientConfiguration(Aws::Client::ClientConfiguration client_config);
   std::vector<Aws::String> getSpotInstanceTypes();
   void launchSpotInstance();

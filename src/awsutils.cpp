@@ -1,24 +1,34 @@
-//
-// Created by Maximilien Lamberti on 4/7/20.
-//
-
+#include <array>
+#include <thread>
+#include <chrono>
+#include <cstdio>
+#include <memory>
+#include <stdexcept>
 #include <algorithm>
 #include <aws/core/Aws.h>
 #include <aws/ec2/EC2Client.h>
 #include <aws/ec2/EC2Request.h>
 #include <aws/ec2/model/RequestSpotInstancesRequest.h>
 #include <aws/ec2/model/DescribeInstanceTypesRequest.h>
+#include <aws/ec2/model/DescribeInstanceStatusRequest.h>
+#include <aws/ec2/model/DescribeInstancesRequest.h>
 
 #include "awsutils.hpp"
 
 
-//std::map<std::string, std::string> DEFAULTS = {
-//    {"instanceType", "c5.micro"},
-//    {"imageId", "ami-0e01ce4ee18447327"},
-//    {"keyName", "test-keys"},
-//    {"region", "us-east-2"},
-//
-//};
+
+std::string exec(const char* cmd) {
+    std::array<char, 128> buffer;
+    std::string result;
+    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+    if (!pipe) {
+        throw std::runtime_error("popen() failed!");
+    }
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+        result += buffer.data();
+    }
+    return result;
+}
 
 
 AwsUtils::AwsUtils() {
@@ -28,24 +38,13 @@ AwsUtils::AwsUtils() {
   client_config.region = Aws::Region::US_EAST_2;
   this->EC2Client = Aws::EC2::EC2Client(client_config);
   this->instanceType = "t2.micro";
-    //    Aws::EC2::Model::InstanceType t2_micro_type = Aws::EC2::Model::InstanceType::t2_micro;
-    this->notebookConfig.instanceType = Aws::EC2::Model::InstanceType::t2_micro;
+  this->notebookConfig.instanceType = Aws::EC2::Model::InstanceType::t2_micro;
   this->notebookConfig.keyName = "test-keys";
   this->notebookConfig.imageId = "ami-0e01ce4ee18447327";
 
-//  this->notebookConfig = {
-//      {"instanceType", "c5.micro"},
-//      {"imageId", "ami-0e01ce4ee18447327"},
-//      {"keyName", "test-keys"},
-//      {"region", "us-east-2"},
-//  };
-
-
 }
 
-AwsUtils::~AwsUtils() {
-//  Aws::ShutdownAPI(this->SDKOptions);
-}
+AwsUtils::~AwsUtils() {}
 
 template <typename T>
 std::vector<Aws::String> AwsUtils::MapEnumVecToSortedStrVec(std::vector<T> input_vector, Aws::String (*mapper)(T)) {
@@ -87,6 +86,56 @@ auto AwsUtils::getSpotInstanceTypes() -> std::vector<Aws::String> {
 
 };
 
+Aws::Vector<Aws::String> AwsUtils::CastToAwsStringVector(const std::string& str) {
+    Aws::Vector<Aws::String> result_vec = {Aws::String(str)};
+    return result_vec;
+}
+
+std::string AwsUtils::GetInstanceId(const Aws::Vector<Aws::String>& request_id, const Aws::EC2::EC2Client& ec2_client) {
+
+    // Query for instance id
+    Aws::EC2::Model::DescribeSpotInstanceRequestsRequest describe_spot_instance_request;
+    describe_spot_instance_request.SetSpotInstanceRequestIds(request_id);
+    auto describe_instance_response = ec2_client.DescribeSpotInstanceRequests(describe_spot_instance_request);
+
+    std::string instance_id;
+    auto instance_description_vec = describe_instance_response.GetResult().GetSpotInstanceRequests();
+    if (instance_description_vec.size() != 0) {
+        instance_id = instance_description_vec[0].GetInstanceId().c_str();
+    }
+
+    return instance_id;
+};
+
+
+Aws::EC2::Model::SummaryStatus AwsUtils::GetInstanceStatus(const std::string& instance_id, const Aws::EC2::EC2Client& ec2_client) {
+
+    // Query for instance status
+    Aws::EC2::Model::DescribeInstanceStatusRequest instance_status_request;
+    auto aws_instance_id = this->CastToAwsStringVector(instance_id.c_str());
+    instance_status_request.SetInstanceIds(aws_instance_id);
+    auto instance_status_response = ec2_client.DescribeInstanceStatus(instance_status_request);
+
+    // Sometimes response is empty
+    auto instance_status_vec = instance_status_response.GetResult().GetInstanceStatuses();
+    Aws::EC2::Model::SummaryStatus instance_status;
+    std::cout << "Size of statuses: " << instance_status_vec.size() << "\nStatuses:" << std::endl;
+    if (instance_status_vec.size() != 0) {
+        for (auto val : instance_status_vec) {
+            instance_status = val.GetInstanceStatus().GetStatus();
+            std::cout << Aws::EC2::Model::SummaryStatusMapper::GetNameForSummaryStatus(instance_status).c_str() << std::endl;
+        }
+        instance_status = instance_status_vec[0].GetInstanceStatus().GetStatus();
+    } else {
+        instance_status = Aws::EC2::Model::SummaryStatus::NOT_SET;
+    }
+
+    return instance_status;
+}
+
+void open_ssh_notebook_tunnel(std::string cmd) {
+    exec(cmd.c_str());
+}
 
 void AwsUtils::launchSpotInstance() {
 
@@ -105,16 +154,72 @@ void AwsUtils::launchSpotInstance() {
         launch_spec.SetImageId(this->notebookConfig.imageId.c_str());
         spot_details.SetInstanceCount(1);
         spot_details.SetLaunchSpecification(launch_spec);
+//        spot_details.SetDryRun(true);
 
         std::cout << "Init spot" << std::endl;
 
         auto response = localEC2Client.RequestSpotInstances(spot_details);
-        std::cout << "Request is Success: " << response.IsSuccess() << std::endl;
+        auto response_data = response.GetResult().GetSpotInstanceRequests();
+        auto request_id = this->CastToAwsStringVector(response_data[0].GetSpotInstanceRequestId().c_str());
 
+        // get request id and initial data
+        //        std::cout << request_data[0].GetSpotPrice() << std::endl;
+        std::string instance_id;
+
+//        std::cout << response_data[0].GetSpotInstanceRequestId().c_str() << std::endl;
+//        Aws::EC2::Model::DescribeSpotInstanceRequestsRequest describe_spot_instance_request;
+//        describe_spot_instance_request.SetSpotInstanceRequestIds(request_id);
+//        auto describe_instance_response = localEC2Client.DescribeSpotInstanceRequests(describe_spot_instance_request);
+//        auto instance_description = describe_instance_response.GetResult().GetSpotInstanceRequests()[0];
+//        std::string instance_id = instance_description.GetInstanceId().c_str();
+//        instance_description.GetStatus();
+//        instance_description.GetInstanceId();
+//        instance_description.InstanceIdHasBeenSet();
+
+        Aws::EC2::Model::SummaryStatus instance_status;
+        std::cout << "instance id: " << instance_id << std::endl;
+
+        while (true) {
+
+            if (instance_id.size() == 0) {
+                instance_id = this->GetInstanceId(request_id, localEC2Client);
+            }
+
+            std::this_thread::sleep_for(std::chrono::seconds (10));
+            instance_status = this->GetInstanceStatus(instance_id, localEC2Client);
+            std::cout << (instance_status == Aws::EC2::Model::SummaryStatus::initializing) << std::endl;
+            std::cout << "Current status: " << Aws::EC2::Model::SummaryStatusMapper::GetNameForSummaryStatus(instance_status).c_str() << std::endl;
+            if (instance_status == Aws::EC2::Model::SummaryStatus::ok) {
+                break;
+            }
+        }
+        Aws::EC2::Model::DescribeInstancesRequest describe_instance_request;
+        Aws::EC2::Model::Filter filter;
+        filter.SetName("instance-id");
+        filter.SetValues(this->CastToAwsStringVector(instance_id));
+        describe_instance_request.AddFilters(filter);
+        auto describe_instances_response = localEC2Client.DescribeInstances(describe_instance_request);
+        auto ip_address = describe_instances_response.GetResult().GetReservations()[0].GetInstances()[0].GetPublicIpAddress();
+
+        std::string ip_address_str = ip_address.c_str();
+
+        std::string ssh_base = "ssh -oStrictHostKeyChecking=no -i ~/.ssh/test-keys.pem ec2-user@" + ip_address_str;
+        std::string download_install_script = ssh_base + " wget https://ec2setup.s3.us-east-2.amazonaws.com/ec2_setup.sh /home/ec2-user/ec2_setup.sh";
+        std::string run_install_script = ssh_base + " sh /home/ec2-user/ec2_setup.sh";
+        std::string query_running_jupyter_sessions = ssh_base + " jupyter notebook list";
+        std::string open_jupyter_connection = "ssh -CNL localhost:5678:localhost:5678 -i ~/.ssh/test-keys.pem ec2-user@" + ip_address_str;
+
+        exec(download_install_script.c_str());
+        exec(run_install_script.c_str());
+        std::string running_notebook_sessions = exec(query_running_jupyter_sessions.c_str());
+        auto url_start_idx = running_notebook_sessions.find("http://");
+        auto url_end_idx = running_notebook_sessions.find(" :: ");
+        auto url = running_notebook_sessions.substr(url_start_idx, url_end_idx - url_start_idx);
+
+        std::cout << url << std::endl;
+//        exec(open_jupyter_connection.c_str());
+        std::thread(open_ssh_notebook_tunnel, open_jupyter_connection).detach();
     }
     Aws::ShutdownAPI(options);
-
-//    auto err = response.GetError();
-//    std::cout << err.GetMessage();
-//    auto res = response.GetResult();
 }
+
