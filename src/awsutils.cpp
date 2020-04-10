@@ -137,8 +137,9 @@ void open_ssh_notebook_tunnel(std::string cmd) {
     exec(cmd.c_str());
 }
 
-void AwsUtils::launchSpotInstance() {
+std::string AwsUtils::LaunchSpotInstance() {
 
+    std::string notebook_token_url;
     Aws::SDKOptions options;
     Aws::InitAPI(options);
     {
@@ -214,12 +215,16 @@ void AwsUtils::launchSpotInstance() {
         std::string running_notebook_sessions = exec(query_running_jupyter_sessions.c_str());
         auto url_start_idx = running_notebook_sessions.find("http://");
         auto url_end_idx = running_notebook_sessions.find(" :: ");
-        auto url = running_notebook_sessions.substr(url_start_idx, url_end_idx - url_start_idx);
+        notebook_token_url = running_notebook_sessions.substr(url_start_idx, url_end_idx - url_start_idx);
 
-        std::cout << url << std::endl;
-//        exec(open_jupyter_connection.c_str());
+        std::cout << notebook_token_url << std::endl;
+
         std::thread(open_ssh_notebook_tunnel, open_jupyter_connection).detach();
+
     }
     Aws::ShutdownAPI(options);
+
+    return notebook_token_url;
+
 }
 

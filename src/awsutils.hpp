@@ -35,7 +35,7 @@ class AwsUtils {
   NotebookConfig notebookConfig;
   void setClientConfiguration(Aws::Client::ClientConfiguration client_config);
   std::vector<Aws::String> getSpotInstanceTypes();
-  void launchSpotInstance();
+  std::string LaunchSpotInstance();
 
 };
 
