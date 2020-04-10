@@ -7,6 +7,7 @@
 #include "awsutils.hpp"
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
+#include "launchdialog.h"
 
 
 template <typename T>
@@ -44,8 +45,12 @@ MainWindow::MainWindow(QWidget *parent)
 
 void MainWindow::launchButtonPressed() {
 
-    std::cout << "Launching instance" << std::endl;
-    this->aws_utils.launchSpotInstance();
+    this->launch_dialog = new LaunchDialog(this);
+    this->launch_dialog->setModal(true);
+    this->launch_dialog->setAttribute(Qt::WA_DeleteOnClose);
+    this->launch_dialog->show();
+    std::string notebook_token_url = this->aws_utils.LaunchSpotInstance();
+    this->launch_dialog->UpdateLabelWithNotebookInfo(notebook_token_url);
 
 }
 
