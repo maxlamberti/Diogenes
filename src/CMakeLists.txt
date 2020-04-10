@@ -18,12 +18,15 @@ find_package(AWSSDK REQUIRED COMPONENTS ec2)
 
 
 add_executable(broke-sage-notebooks
-    main.cpp
-    mainwindow.cpp
-    mainwindow.h
-    mainwindow.ui
-    awsutils.cpp
-    awsutils.hpp
+        main.cpp
+        mainwindow.cpp
+        mainwindow.h
+        mainwindow.ui
+        awsutils.cpp
+        awsutils.hpp
+        launchdialog.cpp
+        launchdialog.h
+        launchdialog.ui
 )
 
 
