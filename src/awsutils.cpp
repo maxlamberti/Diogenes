@@ -18,8 +18,14 @@
 #include <aws/ec2/model/TerminateInstancesRequest.h>
 #include <aws/ec2/model/CreateKeyPairRequest.h>
 #include <aws/ec2/model/DeleteKeyPairRequest.h>
+#include <aws/ec2/model/CreateSecurityGroupRequest.h>
+#include <aws/ec2/model/DeleteSecurityGroupRequest.h>
+#include <aws/ec2/model/AuthorizeSecurityGroupIngressRequest.h>
 
 #include "awsutils.hpp"
+
+
+const auto DEFAULT_INSTANCE_TYPE = Aws::EC2::Model::InstanceType::t2_micro;
 
 
 std::string exec(const char* cmd) {
@@ -38,13 +44,10 @@ std::string exec(const char* cmd) {
 
 AwsUtils::AwsUtils() {
 
-  // Initialize EC2Client
-  Aws::Client::ClientConfiguration client_config;
-  client_config.region = Aws::Region::US_EAST_2;
-  this->instanceType = "t2.micro";
-  this->notebookConfig.instanceType = Aws::EC2::Model::InstanceType::t2_micro;
-  this->notebookConfig.keyName = "DiogenesKey";
-  this->notebookConfig.imageId = "ami-0e01ce4ee18447327";
+    this->notebookConfig.instanceType = DEFAULT_INSTANCE_TYPE;
+    this->notebookConfig.keyName = "DiogenesKey";
+    this->notebookConfig.secGroupName = "DiogenesSecGroup";
+    this->notebookConfig.imageId = "ami-0e01ce4ee18447327";
 
 }
 
@@ -321,6 +324,64 @@ void AwsUtils::DeleteKeyPair() {
     }
     Aws::ShutdownAPI(options);
 
+}
+
+void AwsUtils::CreateSecurityGroup() {
+
+    Aws::SDKOptions options;
+    Aws::InitAPI(options);
+    {
+        // Set up client
+        Aws::Client::ClientConfiguration client_config;
+        client_config.region = Aws::Region::US_EAST_2;
+        Aws::EC2::EC2Client ec2_client(client_config);
+
+        // Create security group
+        Aws::EC2::Model::CreateSecurityGroupRequest create_security_group_request;
+        create_security_group_request.SetGroupName(this->notebookConfig.secGroupName.c_str());
+        create_security_group_request.SetDescription("Diogenes security group. Open to public ssh on port 22.");
+        auto create_security_group_response = ec2_client.CreateSecurityGroup(create_security_group_request);
+
+        // Open port 22 on security group
+        Aws::EC2::Model::AuthorizeSecurityGroupIngressRequest auth_ingress_request;
+        auth_ingress_request.SetGroupName(this->notebookConfig.secGroupName.c_str());
+        Aws::EC2::Model::IpRange ip_range;
+        Aws::EC2::Model::IpPermission ip_permission;
+        ip_range.SetCidrIp("0.0.0.0/0");
+        ip_permission.SetIpProtocol("tcp");
+        ip_permission.SetToPort(22);
+        ip_permission.SetFromPort(22);
+        ip_permission.AddIpRanges(ip_range);
+        auth_ingress_request.AddIpPermissions(ip_permission);
+        auto auth_ingress_response = ec2_client.AuthorizeSecurityGroupIngress(auth_ingress_request);
+    }
+    Aws::ShutdownAPI(options);
+}
+
+void AwsUtils::DeleteSecurityGroup() {
+    Aws::SDKOptions options;
+    Aws::InitAPI(options);
+    {
+        // Set up client
+        Aws::Client::ClientConfiguration client_config;
+        client_config.region = Aws::Region::US_EAST_2;
+        Aws::EC2::EC2Client ec2_client(client_config);
+
+        // Delete Sec Group
+        Aws::EC2::Model::DeleteSecurityGroupRequest delete_security_group_request;
+        delete_security_group_request.SetGroupName(this->notebookConfig.secGroupName.c_str());
+        auto delete_security_group_response = ec2_client.DeleteSecurityGroup(delete_security_group_request);
+    }
+    Aws::ShutdownAPI(options);
+}
+
+void AwsUtils::ResetConfigParameters() {
+    this->notebookConfig.publicIp = "";
+    this->notebookConfig.notebookUrl = "";
+    this->notebookConfig.keyPath = "";
+    this->notebookConfig.instanceId = "";
+    this->notebookConfig.instanceType = DEFAULT_INSTANCE_TYPE;
+    this->notebookConfig.price = "";
 }
 
 

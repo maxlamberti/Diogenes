@@ -8,8 +8,7 @@
 LaunchDialog::LaunchDialog(QWidget *parent, AwsUtils *aws_utils) :
     QDialog(parent),
     ui(new Ui::LaunchDialog),
-    aws_utils(aws_utils)
-{
+    aws_utils(aws_utils) {
     ui->setupUi(this);
 
     connect(ui->LaunchJupyterLabButton, SIGNAL(released()), this, SLOT(LaunchJupyterButtonPressed()));
@@ -18,8 +17,7 @@ LaunchDialog::LaunchDialog(QWidget *parent, AwsUtils *aws_utils) :
 
 }
 
-LaunchDialog::~LaunchDialog()
-{
+LaunchDialog::~LaunchDialog() {
     delete ui;
 }
 
@@ -46,6 +44,8 @@ void LaunchDialog::LaunchJupyterButtonPressed() {
 
 void LaunchDialog::TerminationButtonPressed() {
     bool success = this->aws_utils->TerminateInstance();
+    this->aws_utils->DeleteSecurityGroup();
+    this->aws_utils->ResetConfigParameters();
     this->accept();  // TODO: open warning window if termination not successful
 }
 

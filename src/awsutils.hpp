@@ -12,7 +12,8 @@
 
 
 struct NotebookConfig {
-    std::string imageId, keyName, keyPath, instanceId, price, notebookUrl, publicIp;
+    std::string imageId, keyName, keyPath, instanceId, price, notebookUrl,
+    publicIp, secGroupName;
         Aws::EC2::Model::InstanceType instanceType;
 };
 
@@ -29,15 +30,16 @@ class AwsUtils {
  public:
   AwsUtils();
   ~AwsUtils();
-  std::string instanceType;
   NotebookConfig notebookConfig;
-  void setClientConfiguration(Aws::Client::ClientConfiguration client_config);
-  std::vector<Aws::String> getSpotInstanceTypes();
   void LaunchSpotInstance();
   bool TerminateInstance();
   void RefreshConnection();
   void CreateKeyPair();
   void DeleteKeyPair();
+  void CreateSecurityGroup();
+  void DeleteSecurityGroup();
+  std::vector<Aws::String> getSpotInstanceTypes();
+  void ResetConfigParameters();
 
 };
 

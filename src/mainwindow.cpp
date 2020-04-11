@@ -39,6 +39,7 @@ void MainWindow::LaunchButtonPressed() {
 
     // Launch spot instance and open notebook dialog
     this->aws_utils.CreateKeyPair();
+    this->aws_utils.CreateSecurityGroup();
     this->aws_utils.LaunchSpotInstance();
     this->loading_screen->accept();
     this->launch_dialog = new LaunchDialog(this, &this->aws_utils);
