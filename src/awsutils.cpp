@@ -242,3 +242,11 @@ bool AwsUtils::TerminateInstance(const NotebookConfig& notebook_config) {
 
     return termination_is_successful;
 }
+
+void AwsUtils::RefreshConnection(const NotebookConfig& notebook_config) {
+    // Open detached thread to keep notebook connection open
+    std::string open_jupyter_connection = "ssh -CNL localhost:5678:localhost:5678 -i ~/.ssh/test-keys.pem ec2-user@" + notebook_config.publicIp;
+    std::thread(this->open_ssh_notebook_tunnel, open_jupyter_connection).detach();
+}
+
+

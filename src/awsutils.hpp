@@ -42,9 +42,10 @@ class AwsUtils {
   std::string instanceType;
   NotebookConfig notebookConfig;
   void setClientConfiguration(Aws::Client::ClientConfiguration client_config);
-  bool TerminateInstance(const NotebookConfig& notebook_config);
   std::vector<Aws::String> getSpotInstanceTypes();
   void LaunchSpotInstance();
+  bool TerminateInstance(const NotebookConfig& notebook_config);
+  void RefreshConnection(const NotebookConfig& notebook_config);
 
 };
 

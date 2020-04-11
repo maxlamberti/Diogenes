@@ -29,6 +29,7 @@ private:
 private slots:
     void LaunchJupyterButtonPressed();
     void TerminationButtonPressed();
+    void RefreshConnectionButtonPressed();
 
 };
 

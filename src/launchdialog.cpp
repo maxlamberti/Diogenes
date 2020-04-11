@@ -13,6 +13,7 @@ LaunchDialog::LaunchDialog(QWidget *parent) :
 
     connect(ui->LaunchJupyterLabButton, SIGNAL(released()), this, SLOT(LaunchJupyterButtonPressed()));
     connect(ui->TerminateInstanceButton, SIGNAL(released()), this, SLOT(TerminationButtonPressed()));
+    connect(ui->RefreshConnectionButton, SIGNAL(released()), this, SLOT(RefreshConnectionButtonPressed()));
 
 }
 
@@ -47,4 +48,8 @@ void LaunchDialog::TerminationButtonPressed()
     bool success = this->aws_utils->TerminateInstance(*this->notebookConfig);
     this->accept();
     std::cout << "Termination is Succesfull: " << success << std::endl;
+}
+
+void LaunchDialog::RefreshConnectionButtonPressed() {
+    this->aws_utils->RefreshConnection(*this->notebookConfig);
 }
