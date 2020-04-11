@@ -27,6 +27,9 @@ add_executable(broke-sage-notebooks
         launchdialog.cpp
         launchdialog.h
         launchdialog.ui
+        loadingscreendialog.cpp
+        loadingscreendialog.h
+        loadingscreendialog.ui
 )
 
 
