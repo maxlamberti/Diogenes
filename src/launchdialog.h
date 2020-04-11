@@ -4,6 +4,8 @@
 #include <string>
 #include <QDialog>
 
+#include "awsutils.hpp"
+
 namespace Ui {
 class LaunchDialog;
 }
@@ -15,10 +17,18 @@ class LaunchDialog : public QDialog
 public:
     explicit LaunchDialog(QWidget *parent = nullptr);
     ~LaunchDialog();
-    void UpdateLabelWithNotebookInfo(std::string new_text);
+    void UpdateLabelWithNotebookInfo(NotebookConfig notebook_data);
+    void UpdateLabel(std::string text);
+    std::string notebookUrl;
+    NotebookConfig *notebookConfig;
+    AwsUtils *aws_utils;
 
 private:
     Ui::LaunchDialog *ui;
+
+private slots:
+    void LaunchJupyterButtonPressed();
+    void TerminationButtonPressed();
 
 };
 

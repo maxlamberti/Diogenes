@@ -7,6 +7,7 @@
 
 #include "awsutils.hpp"
 #include "launchdialog.h"
+#include "loadingscreendialog.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -18,17 +19,19 @@ class MainWindow : public QMainWindow {
   public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
-
-  private:
-    Ui::MainWindow *ui;
     AwsUtils aws_utils;
+
+private:
+    Ui::MainWindow *ui;
     LaunchDialog *launch_dialog;
+    LoadingScreenDialog *loading_screen;
     Ui::LaunchDialog *launch_dialog_ui;
+    Ui::LoadingScreenDialog *loading_screen_ui;
 
 
 private slots:
-      void launchButtonPressed();
-      void comboboxItemChanged(QString selection);
+      void LaunchButtonPressed();
+      void ComboboxItemChanged(QString selection);
 
 };
 #endif // MAINWINDOW_H
