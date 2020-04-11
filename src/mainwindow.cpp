@@ -1,22 +1,11 @@
-#include <map>
-#include <string>
 #include <iostream>
 #include <algorithm>
-#include <aws/core/Aws.h>
 
 #include "awsutils.hpp"
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
 #include "launchdialog.h"
 #include "loadingscreendialog.h"
-
-
-template <typename T>
-void print_vector(std::vector<T> input_vector) {
-  for (const auto& val : input_vector) {
-    std::cout << val << std::endl;
-  }
-}
 
 
 MainWindow::MainWindow(QWidget *parent)
@@ -49,15 +38,14 @@ void MainWindow::LaunchButtonPressed() {
     this->loading_screen->open();
 
     // Launch spot instance and open notebook dialog
+    this->aws_utils.CreateKeyPair();
     this->aws_utils.LaunchSpotInstance();
     this->loading_screen->accept();
-    this->launch_dialog = new LaunchDialog(this);
+    this->launch_dialog = new LaunchDialog(this, &this->aws_utils);
     this->launch_dialog->setModal(true);
     this->launch_dialog->setAttribute(Qt::WA_DeleteOnClose);
     this->launch_dialog->UpdateLabelWithNotebookInfo(this->aws_utils.notebookConfig);
-    this->launch_dialog->notebookUrl = this->aws_utils.notebookConfig.notebookUrl;
-    this->launch_dialog->notebookConfig = &this->aws_utils.notebookConfig;
-    this->launch_dialog->show();
+    this->launch_dialog->open();
 
 }
 
