@@ -12,6 +12,7 @@
 #include <aws/ec2/model/DescribeInstanceTypesRequest.h>
 #include <aws/ec2/model/DescribeInstanceStatusRequest.h>
 #include <aws/ec2/model/DescribeInstancesRequest.h>
+#include <aws/ec2/model/TerminateInstancesRequest.h>
 
 #include "awsutils.hpp"
 
@@ -133,53 +134,39 @@ Aws::EC2::Model::SummaryStatus AwsUtils::GetInstanceStatus(const std::string& in
     return instance_status;
 }
 
-void open_ssh_notebook_tunnel(std::string cmd) {
+void AwsUtils::open_ssh_notebook_tunnel(std::string cmd) {
     exec(cmd.c_str());
 }
 
-std::string AwsUtils::LaunchSpotInstance() {
+void AwsUtils::LaunchSpotInstance() {
 
     std::string notebook_token_url;
     Aws::SDKOptions options;
     Aws::InitAPI(options);
     {
-
-        Aws::EC2::Model::RequestSpotInstancesRequest spot_details;
-        Aws::EC2::Model::RequestSpotLaunchSpecification launch_spec;
+        // Set up client
         Aws::Client::ClientConfiguration client_config;
         client_config.region = Aws::Region::US_EAST_2;
         Aws::EC2::EC2Client localEC2Client(client_config);
 
+        // Request spot instance
+        Aws::EC2::Model::RequestSpotInstancesRequest spot_details;
+        Aws::EC2::Model::RequestSpotLaunchSpecification launch_spec;
         launch_spec.SetInstanceType(this->notebookConfig.instanceType);
         launch_spec.SetKeyName(this->notebookConfig.keyName.c_str());
         launch_spec.SetImageId(this->notebookConfig.imageId.c_str());
         spot_details.SetInstanceCount(1);
         spot_details.SetLaunchSpecification(launch_spec);
-//        spot_details.SetDryRun(true);
-
-        std::cout << "Init spot" << std::endl;
-
         auto response = localEC2Client.RequestSpotInstances(spot_details);
+
+        // Get initial data and request ID
         auto response_data = response.GetResult().GetSpotInstanceRequests();
         auto request_id = this->CastToAwsStringVector(response_data[0].GetSpotInstanceRequestId().c_str());
+        auto price = response_data[0].GetSpotPrice();
 
-        // get request id and initial data
-        //        std::cout << request_data[0].GetSpotPrice() << std::endl;
+        // Query instance status until it's ready to connect to
         std::string instance_id;
-
-//        std::cout << response_data[0].GetSpotInstanceRequestId().c_str() << std::endl;
-//        Aws::EC2::Model::DescribeSpotInstanceRequestsRequest describe_spot_instance_request;
-//        describe_spot_instance_request.SetSpotInstanceRequestIds(request_id);
-//        auto describe_instance_response = localEC2Client.DescribeSpotInstanceRequests(describe_spot_instance_request);
-//        auto instance_description = describe_instance_response.GetResult().GetSpotInstanceRequests()[0];
-//        std::string instance_id = instance_description.GetInstanceId().c_str();
-//        instance_description.GetStatus();
-//        instance_description.GetInstanceId();
-//        instance_description.InstanceIdHasBeenSet();
-
         Aws::EC2::Model::SummaryStatus instance_status;
-        std::cout << "instance id: " << instance_id << std::endl;
-
         while (true) {
 
             if (instance_id.size() == 0) {
@@ -194,37 +181,64 @@ std::string AwsUtils::LaunchSpotInstance() {
                 break;
             }
         }
-        Aws::EC2::Model::DescribeInstancesRequest describe_instance_request;
+
+        // Get public IP address of instance
         Aws::EC2::Model::Filter filter;
+        Aws::EC2::Model::DescribeInstancesRequest describe_instance_request;
         filter.SetName("instance-id");
         filter.SetValues(this->CastToAwsStringVector(instance_id));
         describe_instance_request.AddFilters(filter);
         auto describe_instances_response = localEC2Client.DescribeInstances(describe_instance_request);
         auto ip_address = describe_instances_response.GetResult().GetReservations()[0].GetInstances()[0].GetPublicIpAddress();
-
         std::string ip_address_str = ip_address.c_str();
 
+        // Run install scripts
         std::string ssh_base = "ssh -oStrictHostKeyChecking=no -i ~/.ssh/test-keys.pem ec2-user@" + ip_address_str;
         std::string download_install_script = ssh_base + " wget https://ec2setup.s3.us-east-2.amazonaws.com/ec2_setup.sh /home/ec2-user/ec2_setup.sh";
         std::string run_install_script = ssh_base + " sh /home/ec2-user/ec2_setup.sh";
         std::string query_running_jupyter_sessions = ssh_base + " jupyter notebook list";
-        std::string open_jupyter_connection = "ssh -CNL localhost:5678:localhost:5678 -i ~/.ssh/test-keys.pem ec2-user@" + ip_address_str;
-
         exec(download_install_script.c_str());
         exec(run_install_script.c_str());
+
+        // Get notebook URL
         std::string running_notebook_sessions = exec(query_running_jupyter_sessions.c_str());
         auto url_start_idx = running_notebook_sessions.find("http://");
         auto url_end_idx = running_notebook_sessions.find(" :: ");
         notebook_token_url = running_notebook_sessions.substr(url_start_idx, url_end_idx - url_start_idx);
-
         std::cout << notebook_token_url << std::endl;
 
-        std::thread(open_ssh_notebook_tunnel, open_jupyter_connection).detach();
+        // Open detached thread to keep notebook connection open
+        std::string open_jupyter_connection = "ssh -CNL localhost:5678:localhost:5678 -i ~/.ssh/test-keys.pem ec2-user@" + ip_address_str;
+        std::thread(this->open_ssh_notebook_tunnel, open_jupyter_connection).detach();
+
+        this->notebookConfig.price = price;
+        this->notebookConfig.instanceId = instance_id;
+        this->notebookConfig.notebookUrl = notebook_token_url;
+        this->notebookConfig.publicIp = ip_address;
 
     }
     Aws::ShutdownAPI(options);
 
-    return notebook_token_url;
-
 }
 
+bool AwsUtils::TerminateInstance(const NotebookConfig& notebook_config) {
+
+    bool termination_is_successful;
+    Aws::SDKOptions options;
+    Aws::InitAPI(options);
+    {
+        // Set up client
+        Aws::Client::ClientConfiguration client_config;
+        client_config.region = Aws::Region::US_EAST_2;
+        Aws::EC2::EC2Client localEC2Client(client_config);
+
+        // Terminate instance
+        Aws::EC2::Model::TerminateInstancesRequest termination_request;
+        termination_request.SetInstanceIds(this->CastToAwsStringVector(notebook_config.instanceId));
+        auto termination_response = localEC2Client.TerminateInstances(termination_request);
+        termination_is_successful = termination_response.GetResult().GetTerminatingInstances().size() > 0;
+    }
+    Aws::ShutdownAPI(options);
+
+    return termination_is_successful;
+}

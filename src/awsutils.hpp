@@ -14,6 +14,17 @@
 #include <aws/ec2/model/DescribeSpotInstanceRequestsRequest.h>
 
 
+//struct LaunchSpotInstanceResult {
+//    std::string instanceId;
+//    std::string price;
+//    std::string notebookUrl;
+//    std::string publicIp;
+//};
+struct NotebookConfig {
+    std::string imageId, keyName, instanceId, price, notebookUrl, publicIp;
+        Aws::EC2::Model::InstanceType instanceType;
+};
+
 class AwsUtils {
 
  private:
@@ -23,19 +34,17 @@ class AwsUtils {
   Aws::Vector<Aws::String> CastToAwsStringVector(const std::string& str);
   Aws::EC2::Model::SummaryStatus GetInstanceStatus(const std::string& instance_id, const Aws::EC2::EC2Client& ec2_client);
   std::string GetInstanceId(const Aws::Vector<Aws::String>& request_id, const Aws::EC2::EC2Client& ec2_client);
+  static void open_ssh_notebook_tunnel(std::string cmd);
 
  public:
-  struct NotebookConfig {
-      std::string imageId, keyName;
-      Aws::EC2::Model::InstanceType instanceType;
-  };
   AwsUtils();
   ~AwsUtils();
   std::string instanceType;
   NotebookConfig notebookConfig;
   void setClientConfiguration(Aws::Client::ClientConfiguration client_config);
+  bool TerminateInstance(const NotebookConfig& notebook_config);
   std::vector<Aws::String> getSpotInstanceTypes();
-  std::string LaunchSpotInstance();
+  void LaunchSpotInstance();
 
 };
 
