@@ -15,12 +15,10 @@ class LaunchDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit LaunchDialog(QWidget *parent = nullptr);
+    explicit LaunchDialog(QWidget *parent = nullptr, AwsUtils *aws_utils = nullptr);
     ~LaunchDialog();
     void UpdateLabelWithNotebookInfo(NotebookConfig notebook_data);
     void UpdateLabel(std::string text);
-    std::string notebookUrl;
-    NotebookConfig *notebookConfig;
     AwsUtils *aws_utils;
 
 private:

@@ -5,9 +5,10 @@
 #include "launchdialog.h"
 #include "ui_launchdialog.h"
 
-LaunchDialog::LaunchDialog(QWidget *parent) :
+LaunchDialog::LaunchDialog(QWidget *parent, AwsUtils *aws_utils) :
     QDialog(parent),
-    ui(new Ui::LaunchDialog)
+    ui(new Ui::LaunchDialog),
+    aws_utils(aws_utils)
 {
     ui->setupUi(this);
 
@@ -40,16 +41,14 @@ void LaunchDialog::UpdateLabel(std::string text) {
 }
 
 void LaunchDialog::LaunchJupyterButtonPressed() {
-    QDesktopServices::openUrl(QUrl(this->notebookUrl.c_str(), QUrl::TolerantMode));
+    QDesktopServices::openUrl(QUrl(this->aws_utils->notebookConfig.notebookUrl.c_str(), QUrl::TolerantMode));
 }
 
-void LaunchDialog::TerminationButtonPressed()
-{
-    bool success = this->aws_utils->TerminateInstance(*this->notebookConfig);
-    this->accept();
-    std::cout << "Termination is Succesfull: " << success << std::endl;
+void LaunchDialog::TerminationButtonPressed() {
+    bool success = this->aws_utils->TerminateInstance();
+    this->accept();  // TODO: open warning window if termination not successful
 }
 
 void LaunchDialog::RefreshConnectionButtonPressed() {
-    this->aws_utils->RefreshConnection(*this->notebookConfig);
+    this->aws_utils->RefreshConnection();
 }
