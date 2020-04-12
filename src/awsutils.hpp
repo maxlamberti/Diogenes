@@ -14,7 +14,8 @@
 struct NotebookConfig {
     std::string imageId, keyName, keyPath, instanceId, price, notebookUrl,
     publicIp, secGroupName;
-        Aws::EC2::Model::InstanceType instanceType;
+    bool isGpuInstance;
+    Aws::EC2::Model::InstanceType instanceType;
 };
 
 class AwsUtils {
@@ -25,7 +26,9 @@ class AwsUtils {
   Aws::Vector<Aws::String> CastToAwsStringVector(const std::string& str);
   Aws::EC2::Model::SummaryStatus GetInstanceStatus(const std::string& instance_id, const Aws::EC2::EC2Client& ec2_client);
   std::string GetInstanceId(const Aws::Vector<Aws::String>& request_id, const Aws::EC2::EC2Client& ec2_client);
-  static void open_ssh_notebook_tunnel(std::string cmd);
+  static bool IsGpuInstance(Aws::EC2::Model::InstanceType instance_type);
+  static void OpenSshNotebookTunnel(std::string cmd);
+  std::string GetImageId(bool is_gpu_instance);
 
  public:
   AwsUtils();
@@ -38,7 +41,7 @@ class AwsUtils {
   void DeleteKeyPair();
   void CreateSecurityGroup();
   void DeleteSecurityGroup();
-  std::vector<Aws::String> getSpotInstanceTypes();
+  std::vector<Aws::String> GetSpotInstanceTypes();
   void ResetConfigParameters();
 
 };

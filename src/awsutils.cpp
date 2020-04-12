@@ -11,24 +11,27 @@
 #include <aws/core/Aws.h>
 #include <aws/ec2/EC2Client.h>
 #include <aws/ec2/EC2Request.h>
+#include <aws/ec2/model/CreateKeyPairRequest.h>
+#include <aws/ec2/model/DeleteKeyPairRequest.h>
+#include <aws/ec2/model/DescribeImagesRequest.h>
+#include <aws/ec2/model/DescribeInstancesRequest.h>
+#include <aws/ec2/model/TerminateInstancesRequest.h>
+#include <aws/ec2/model/CreateSecurityGroupRequest.h>
+#include <aws/ec2/model/DeleteSecurityGroupRequest.h>
 #include <aws/ec2/model/RequestSpotInstancesRequest.h>
 #include <aws/ec2/model/DescribeInstanceTypesRequest.h>
 #include <aws/ec2/model/DescribeInstanceStatusRequest.h>
-#include <aws/ec2/model/DescribeInstancesRequest.h>
-#include <aws/ec2/model/TerminateInstancesRequest.h>
-#include <aws/ec2/model/CreateKeyPairRequest.h>
-#include <aws/ec2/model/DeleteKeyPairRequest.h>
-#include <aws/ec2/model/CreateSecurityGroupRequest.h>
-#include <aws/ec2/model/DeleteSecurityGroupRequest.h>
 #include <aws/ec2/model/AuthorizeSecurityGroupIngressRequest.h>
 
 #include "awsutils.hpp"
 
 
 const auto DEFAULT_INSTANCE_TYPE = Aws::EC2::Model::InstanceType::t2_micro;
+const std::string DEFAULT_KEY_NAME("DiogenesKey");
+const std::string DEFAULT_SEC_GROUP_NAME("DiogenesSecGroup");
 
 
-std::string exec(const char* cmd) {
+std::string ShellExecute(const char* cmd) {
     std::array<char, 128> buffer;
     std::string result;
     std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
@@ -45,9 +48,8 @@ std::string exec(const char* cmd) {
 AwsUtils::AwsUtils() {
 
     this->notebookConfig.instanceType = DEFAULT_INSTANCE_TYPE;
-    this->notebookConfig.keyName = "DiogenesKey";
-    this->notebookConfig.secGroupName = "DiogenesSecGroup";
-    this->notebookConfig.imageId = "ami-0e01ce4ee18447327";
+    this->notebookConfig.keyName = DEFAULT_KEY_NAME;
+    this->notebookConfig.secGroupName = DEFAULT_SEC_GROUP_NAME;
 
 }
 
@@ -73,7 +75,7 @@ std::vector<Aws::String> AwsUtils::MapEnumVecToSortedStrVec(std::vector<T> input
 template std::vector<Aws::String> AwsUtils::MapEnumVecToSortedStrVec<Aws::EC2::Model::InstanceType>(std::vector<Aws::EC2::Model::InstanceType>,
                                                                                                     Aws::String (*)(Aws::EC2::Model::InstanceType));
 
-auto AwsUtils::getSpotInstanceTypes() -> std::vector<Aws::String> {
+auto AwsUtils::GetSpotInstanceTypes() -> std::vector<Aws::String> {
 
     std::vector<Aws::String> all_instance_types;
 
@@ -152,13 +154,30 @@ Aws::EC2::Model::SummaryStatus AwsUtils::GetInstanceStatus(const std::string& in
     return instance_status;
 }
 
-void AwsUtils::open_ssh_notebook_tunnel(std::string cmd) {
-    exec(cmd.c_str());
+bool AwsUtils::IsGpuInstance(Aws::EC2::Model::InstanceType instance_type) {
+
+    bool is_gpu_instance;
+    std::string instance_type_str(Aws::EC2::Model::InstanceTypeMapper::GetNameForInstanceType(instance_type));
+    char first_letter(instance_type_str.at(0));
+    std::string first_three_letters = instance_type_str.substr(0, 3);
+
+    // p__, g__ or inf machines have GPUs
+    is_gpu_instance = (first_letter == 'p') | (first_letter =='g') | (first_three_letters.compare("inf") == 0);
+
+    return is_gpu_instance;
+}
+
+void AwsUtils::OpenSshNotebookTunnel(std::string cmd) {
+    ShellExecute(cmd.c_str());
 }
 
 void AwsUtils::LaunchSpotInstance() {
 
     std::string notebook_token_url;
+
+    this->notebookConfig.isGpuInstance = this->IsGpuInstance(this->notebookConfig.instanceType);
+    this->notebookConfig.imageId = this->GetImageId(this->notebookConfig.isGpuInstance);
+
     Aws::SDKOptions options;
     Aws::InitAPI(options);
     {
@@ -173,6 +192,7 @@ void AwsUtils::LaunchSpotInstance() {
         launch_spec.SetInstanceType(this->notebookConfig.instanceType);
         launch_spec.SetKeyName(this->notebookConfig.keyName.c_str());
         launch_spec.SetImageId(this->notebookConfig.imageId.c_str());
+        launch_spec.SetSecurityGroups(this->CastToAwsStringVector(this->notebookConfig.secGroupName));
         spot_details.SetInstanceCount(1);
         spot_details.SetLaunchSpecification(launch_spec);
         auto response = ec2_client.RequestSpotInstances(spot_details);
@@ -215,11 +235,11 @@ void AwsUtils::LaunchSpotInstance() {
         std::string download_install_script = ssh_base + " wget https://ec2setup.s3.us-east-2.amazonaws.com/ec2_setup.sh /home/ec2-user/ec2_setup.sh";
         std::string run_install_script = ssh_base + " sh /home/ec2-user/ec2_setup.sh";
         std::string query_running_jupyter_sessions = ssh_base + " jupyter notebook list";
-        exec(download_install_script.c_str());
-        exec(run_install_script.c_str());
+        ShellExecute(download_install_script.c_str());
+        ShellExecute(run_install_script.c_str());
 
         // Get notebook URL
-        std::string running_notebook_sessions = exec(query_running_jupyter_sessions.c_str());
+        std::string running_notebook_sessions = ShellExecute(query_running_jupyter_sessions.c_str());
         auto url_start_idx = running_notebook_sessions.find("http://");
         auto url_end_idx = running_notebook_sessions.find(" :: ");
         notebook_token_url = running_notebook_sessions.substr(url_start_idx, url_end_idx - url_start_idx);
@@ -227,7 +247,7 @@ void AwsUtils::LaunchSpotInstance() {
 
         // Open detached thread to keep notebook connection open
         std::string open_jupyter_connection = "ssh -CNL localhost:5678:localhost:5678 -i " + this->notebookConfig.keyPath + " ec2-user@" + ip_address_str;
-        std::thread(this->open_ssh_notebook_tunnel, open_jupyter_connection).detach();
+        std::thread(this->OpenSshNotebookTunnel, open_jupyter_connection).detach();
 
         this->notebookConfig.price = price;
         this->notebookConfig.instanceId = instance_id;
@@ -264,7 +284,7 @@ bool AwsUtils::TerminateInstance() {
 void AwsUtils::RefreshConnection() {
     // Open detached thread to keep notebook connection open
     std::string open_jupyter_connection = "ssh -CNL localhost:5678:localhost:5678 -i " + this->notebookConfig.keyPath + " ec2-user@" + this->notebookConfig.publicIp;
-    std::thread(this->open_ssh_notebook_tunnel, open_jupyter_connection).detach();
+    std::thread(this->OpenSshNotebookTunnel, open_jupyter_connection).detach();
 }
 
 void AwsUtils::CreateKeyPair() {
@@ -375,6 +395,52 @@ void AwsUtils::DeleteSecurityGroup() {
     Aws::ShutdownAPI(options);
 }
 
+std::string AwsUtils::GetImageId(bool is_gpu_instance) {
+
+    // Select image depending on gpu
+    std::string image_name, image_id;
+    if (is_gpu_instance) {
+        image_name = "Deep Learning AMI (Amazon Linux 2)*";
+    } else {
+        image_name = "amzn2-ami-hvm-2.0.????????.?-x86_64-gp2";
+    }
+
+    Aws::SDKOptions options;
+    Aws::InitAPI(options);
+    {
+        // Set up client
+        Aws::Client::ClientConfiguration client_config;
+        client_config.region = Aws::Region::US_EAST_2;
+        Aws::EC2::EC2Client ec2_client(client_config);
+
+        // Query for suitable machine images
+        Aws::EC2::Model::DescribeImagesRequest describe_images_request;
+        Aws::EC2::Model::Filter name_filter, state_filter;
+        state_filter.SetName("state");
+        state_filter.SetValues(this->CastToAwsStringVector("available"));
+        name_filter.SetName("name");
+        name_filter.SetValues(this->CastToAwsStringVector(image_name));
+        describe_images_request.AddFilters(name_filter);
+        describe_images_request.AddFilters(state_filter);
+        describe_images_request.SetOwners(CastToAwsStringVector("amazon"));
+        auto describe_images_result = ec2_client.DescribeImages(describe_images_request);
+        auto viable_images = describe_images_result.GetResult().GetImages();
+
+        // Find the newest image by taking max of the name (date formatting permits max operation)
+        std::vector<std::string> instance_name_vec;
+        instance_name_vec.reserve(viable_images.size());
+        for (auto image : viable_images) {
+            instance_name_vec.push_back(image.GetName().c_str());
+        }
+        auto max_iterator = std::max_element(instance_name_vec.begin(), instance_name_vec.end());
+        int max_index = std::distance(instance_name_vec.begin(), max_iterator);
+        image_id = viable_images[max_index].GetImageId();
+    }
+    Aws::ShutdownAPI(options);
+
+    return image_id;
+}
+
 void AwsUtils::ResetConfigParameters() {
     this->notebookConfig.publicIp = "";
     this->notebookConfig.notebookUrl = "";
@@ -383,5 +449,3 @@ void AwsUtils::ResetConfigParameters() {
     this->notebookConfig.instanceType = DEFAULT_INSTANCE_TYPE;
     this->notebookConfig.price = "";
 }
-
-

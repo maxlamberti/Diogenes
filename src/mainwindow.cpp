@@ -13,7 +13,7 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow) {
 
     AwsUtils aws_utils;
-    auto all_instance_types = aws_utils.getSpotInstanceTypes();
+    auto all_instance_types = aws_utils.GetSpotInstanceTypes();
 
     ui->setupUi(this);
 
