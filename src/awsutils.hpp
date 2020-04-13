@@ -13,7 +13,7 @@
 
 struct NotebookConfig {
     std::string imageId, keyName, keyPath, instanceId, price, notebookUrl,
-    publicIp, secGroupName;
+    publicIp, secGroupName, region;
     bool isGpuInstance;
     Aws::EC2::Model::InstanceType instanceType;
 };
@@ -29,11 +29,13 @@ class AwsUtils {
   static bool IsGpuInstance(Aws::EC2::Model::InstanceType instance_type);
   static void OpenSshNotebookTunnel(std::string cmd);
   std::string GetImageId(bool is_gpu_instance);
+  void InitializeRegion();
 
  public:
   AwsUtils();
   ~AwsUtils();
   NotebookConfig notebookConfig;
+  std::set<std::string> AvailableRegions;
   void LaunchSpotInstance();
   bool TerminateInstance();
   void RefreshConnection();

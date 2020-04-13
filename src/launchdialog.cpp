@@ -5,6 +5,7 @@
 #include "launchdialog.h"
 #include "ui_launchdialog.h"
 
+
 LaunchDialog::LaunchDialog(QWidget *parent, AwsUtils *aws_utils) :
     QDialog(parent),
     ui(new Ui::LaunchDialog),

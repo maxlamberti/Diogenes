@@ -27,7 +27,7 @@
      <string>Broke Sage Notebook Launcher</string>
     </property>
    </widget>
-   <widget class="QLabel" name="label_2">
+   <widget class="QLabel" name="InstanceTypeLabel">
     <property name="geometry">
      <rect>
       <x>10</x>
@@ -40,7 +40,7 @@
      <string>Instance Type:</string>
     </property>
    </widget>
-   <widget class="QComboBox" name="comboBox">
+   <widget class="QComboBox" name="InstanceTypeComboBox">
     <property name="geometry">
      <rect>
       <x>110</x>
@@ -59,7 +59,7 @@
      <bool>true</bool>
     </property>
    </widget>
-   <widget class="QPushButton" name="pushButton">
+   <widget class="QPushButton" name="RequestInstanceButton">
     <property name="geometry">
      <rect>
       <x>240</x>

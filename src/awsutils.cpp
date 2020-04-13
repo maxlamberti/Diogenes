@@ -10,7 +10,6 @@
 #include <filesystem>
 #include <aws/core/Aws.h>
 #include <aws/ec2/EC2Client.h>
-#include <aws/ec2/EC2Request.h>
 #include <aws/ec2/model/CreateKeyPairRequest.h>
 #include <aws/ec2/model/DeleteKeyPairRequest.h>
 #include <aws/ec2/model/DescribeImagesRequest.h>
@@ -50,7 +49,13 @@ AwsUtils::AwsUtils() {
     this->notebookConfig.instanceType = DEFAULT_INSTANCE_TYPE;
     this->notebookConfig.keyName = DEFAULT_KEY_NAME;
     this->notebookConfig.secGroupName = DEFAULT_SEC_GROUP_NAME;
-
+//    this->notebookConfig.region = "us-east-1";  // TODO: if possible get from aws config
+    this->AvailableRegions = {
+        "us-east-1", "us-east-2", "us-west-1", "us-west-2", "ca-central-1",
+        "eu-west-1", "eu-west-2", "eu-west-3", "eu-central-1",
+        "ap-southeast-1", "ap-southeast-2", "ap-northeast-1", "ap-northeast-2",
+        "ap-south-1", "sa-east-1"
+    };
 }
 
 AwsUtils::~AwsUtils() {}
@@ -84,7 +89,7 @@ auto AwsUtils::GetSpotInstanceTypes() -> std::vector<Aws::String> {
     {
         // Set up client
         Aws::Client::ClientConfiguration client_config;
-        client_config.region = Aws::Region::US_EAST_2;
+        client_config.region = this->notebookConfig.region;
         Aws::EC2::EC2Client ec2_client(client_config);
 
         // Get response from AWS
@@ -140,11 +145,9 @@ Aws::EC2::Model::SummaryStatus AwsUtils::GetInstanceStatus(const std::string& in
     // Sometimes response is empty
     auto instance_status_vec = instance_status_response.GetResult().GetInstanceStatuses();
     Aws::EC2::Model::SummaryStatus instance_status;
-    std::cout << "Size of statuses: " << instance_status_vec.size() << "\nStatuses:" << std::endl;
     if (instance_status_vec.size() != 0) {
         for (auto val : instance_status_vec) {
             instance_status = val.GetInstanceStatus().GetStatus();
-            std::cout << Aws::EC2::Model::SummaryStatusMapper::GetNameForSummaryStatus(instance_status).c_str() << std::endl;
         }
         instance_status = instance_status_vec[0].GetInstanceStatus().GetStatus();
     } else {
@@ -183,7 +186,7 @@ void AwsUtils::LaunchSpotInstance() {
     {
         // Set up client
         Aws::Client::ClientConfiguration client_config;
-        client_config.region = Aws::Region::US_EAST_2;
+        client_config.region = this->notebookConfig.region;
         Aws::EC2::EC2Client ec2_client(client_config);
 
         // Request spot instance
@@ -193,6 +196,7 @@ void AwsUtils::LaunchSpotInstance() {
         launch_spec.SetKeyName(this->notebookConfig.keyName.c_str());
         launch_spec.SetImageId(this->notebookConfig.imageId.c_str());
         launch_spec.SetSecurityGroups(this->CastToAwsStringVector(this->notebookConfig.secGroupName));
+        //        launch_spec.AddBlockDeviceMappings();  // set persistent block storage here
         spot_details.SetInstanceCount(1);
         spot_details.SetLaunchSpecification(launch_spec);
         auto response = ec2_client.RequestSpotInstances(spot_details);
@@ -213,8 +217,6 @@ void AwsUtils::LaunchSpotInstance() {
 
             std::this_thread::sleep_for(std::chrono::seconds (10));
             instance_status = this->GetInstanceStatus(instance_id, ec2_client);
-            std::cout << (instance_status == Aws::EC2::Model::SummaryStatus::initializing) << std::endl;
-            std::cout << "Current status: " << Aws::EC2::Model::SummaryStatusMapper::GetNameForSummaryStatus(instance_status).c_str() << std::endl;
             if (instance_status == Aws::EC2::Model::SummaryStatus::ok) {
                 break;
             }
@@ -231,19 +233,26 @@ void AwsUtils::LaunchSpotInstance() {
         std::string ip_address_str = ip_address.c_str();
 
         // Run install scripts
+        std::string install_script = this->notebookConfig.isGpuInstance? "ec2_dl_ami_setup.sh" : "ec2_amzn2_ami_setup.sh";
         std::string ssh_base = "ssh -oStrictHostKeyChecking=no -i " + this->notebookConfig.keyPath + " ec2-user@" + ip_address_str;
-        std::string download_install_script = ssh_base + " wget https://ec2setup.s3.us-east-2.amazonaws.com/ec2_setup.sh /home/ec2-user/ec2_setup.sh";
-        std::string run_install_script = ssh_base + " sh /home/ec2-user/ec2_setup.sh";
+        std::string download_install_script = ssh_base + " wget https://ec2setup.s3.us-east-2.amazonaws.com/" + install_script + " /home/ec2-user/" + install_script;
+        std::string run_install_script = ssh_base + " sh /home/ec2-user/" + install_script;
         std::string query_running_jupyter_sessions = ssh_base + " jupyter notebook list";
         ShellExecute(download_install_script.c_str());
         ShellExecute(run_install_script.c_str());
 
         // Get notebook URL
-        std::string running_notebook_sessions = ShellExecute(query_running_jupyter_sessions.c_str());
+        std::string running_notebook_sessions;
+        while (true) {
+            running_notebook_sessions = ShellExecute(query_running_jupyter_sessions.c_str());
+            if (running_notebook_sessions.find("http:") != std::string::npos) {
+                break;
+            }
+            std::this_thread::sleep_for(std::chrono::seconds (10));
+        }
         auto url_start_idx = running_notebook_sessions.find("http://");
         auto url_end_idx = running_notebook_sessions.find(" :: ");
         notebook_token_url = running_notebook_sessions.substr(url_start_idx, url_end_idx - url_start_idx);
-        std::cout << notebook_token_url << std::endl;
 
         // Open detached thread to keep notebook connection open
         std::string open_jupyter_connection = "ssh -CNL localhost:5678:localhost:5678 -i " + this->notebookConfig.keyPath + " ec2-user@" + ip_address_str;
@@ -256,7 +265,6 @@ void AwsUtils::LaunchSpotInstance() {
 
     }
     Aws::ShutdownAPI(options);
-
 }
 
 bool AwsUtils::TerminateInstance() {
@@ -267,7 +275,7 @@ bool AwsUtils::TerminateInstance() {
     {
         // Set up client
         Aws::Client::ClientConfiguration client_config;
-        client_config.region = Aws::Region::US_EAST_2;
+        client_config.region = this->notebookConfig.region;
         Aws::EC2::EC2Client ec2_client(client_config);
 
         // Terminate instance
@@ -297,7 +305,7 @@ void AwsUtils::CreateKeyPair() {
     {
         // Set up client
         Aws::Client::ClientConfiguration client_config;
-        client_config.region = Aws::Region::US_EAST_2;
+        client_config.region = this->notebookConfig.region;
         Aws::EC2::EC2Client ec2_client(client_config);
 
         // Create Key Pair
@@ -328,7 +336,7 @@ void AwsUtils::DeleteKeyPair() {
     {
         // Set up client
         Aws::Client::ClientConfiguration client_config;
-        client_config.region = Aws::Region::US_EAST_2;
+        client_config.region = this->notebookConfig.region;
         Aws::EC2::EC2Client ec2_client(client_config);
 
         // Delete Key Pair
@@ -353,7 +361,7 @@ void AwsUtils::CreateSecurityGroup() {
     {
         // Set up client
         Aws::Client::ClientConfiguration client_config;
-        client_config.region = Aws::Region::US_EAST_2;
+        client_config.region = this->notebookConfig.region;
         Aws::EC2::EC2Client ec2_client(client_config);
 
         // Create security group
@@ -384,7 +392,7 @@ void AwsUtils::DeleteSecurityGroup() {
     {
         // Set up client
         Aws::Client::ClientConfiguration client_config;
-        client_config.region = Aws::Region::US_EAST_2;
+        client_config.region = this->notebookConfig.region;
         Aws::EC2::EC2Client ec2_client(client_config);
 
         // Delete Sec Group
@@ -410,7 +418,7 @@ std::string AwsUtils::GetImageId(bool is_gpu_instance) {
     {
         // Set up client
         Aws::Client::ClientConfiguration client_config;
-        client_config.region = Aws::Region::US_EAST_2;
+        client_config.region = this->notebookConfig.region;
         Aws::EC2::EC2Client ec2_client(client_config);
 
         // Query for suitable machine images

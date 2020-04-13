@@ -6,6 +6,7 @@
 #include "./ui_mainwindow.h"
 #include "launchdialog.h"
 #include "loadingscreendialog.h"
+#include <selectregiondialog.h>
 
 
 MainWindow::MainWindow(QWidget *parent)
@@ -13,27 +14,42 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow) {
 
     AwsUtils aws_utils;
-    auto all_instance_types = aws_utils.GetSpotInstanceTypes();
+    this->ui->setupUi(this);
 
-    ui->setupUi(this);
+    // Display a loading screen that locks main window
+    this->region_screen = new SelectRegionDialog(this, aws_utils.AvailableRegions);
+    this->region_screen->setAttribute(Qt::WA_DeleteOnClose);
+    this->region_screen->setModal(true);
+    this->region_screen->open();
 
-    ui->comboBox->setStyleSheet("combobox-popup: 0;");
+    // Connect slots and signals: Order conveys priority
+    connect(this->region_screen, SIGNAL(RegionIsSet()),this, SLOT(SetRegion()));  // PRIORITY: connected first
+    connect(this->region_screen, SIGNAL(RegionIsSet()),this, SLOT(PopulateInstanceTypeSelection()));
+    connect(this->ui->RequestInstanceButton, SIGNAL(released()), this, SLOT(LaunchButtonPressed()));
+    connect(this->ui->InstanceTypeComboBox, SIGNAL(currentTextChanged(QString)), this, SLOT(InstanceTypeChanged(QString)));
 
-    connect(ui->pushButton, SIGNAL(released()), this, SLOT(LaunchButtonPressed()));
-    connect(ui->comboBox, SIGNAL(currentTextChanged(QString)), this, SLOT(ComboboxItemChanged(QString)));
+    this->ui->InstanceTypeComboBox->addItem(QString("Select Instance Type"));
+    this->ui->InstanceTypeComboBox->setStyleSheet("combobox-popup: 0;");
 
-    for (auto val : all_instance_types) {
-        QString s(val.c_str());
-        ui->comboBox->addItem(s);
+}
+
+void MainWindow::PopulateInstanceTypeSelection() {
+    auto all_instance_types = this->aws_utils.GetSpotInstanceTypes();
+    for (auto inst_type : all_instance_types) {
+        this->ui->InstanceTypeComboBox->addItem(QString(inst_type.c_str()));
     }
+}
+
+void MainWindow::SetRegion() {
+    this->aws_utils.notebookConfig.region = this->region_screen->SelectedRegion;
 }
 
 void MainWindow::LaunchButtonPressed() {
 
     // Display a loading screen that locks main window
     this->loading_screen = new LoadingScreenDialog(this);
-    this->loading_screen->setModal(true);
     this->loading_screen->setAttribute(Qt::WA_DeleteOnClose);
+    this->loading_screen->setModal(true);
     this->loading_screen->UpdateLoadingScreenText("Launching instance... <br><br><br>May take a few minutes...");
     this->loading_screen->open();
 
@@ -47,18 +63,20 @@ void MainWindow::LaunchButtonPressed() {
     this->launch_dialog->setAttribute(Qt::WA_DeleteOnClose);
     this->launch_dialog->UpdateLabelWithNotebookInfo(this->aws_utils.notebookConfig);
     this->launch_dialog->open();
-
 }
 
-void MainWindow::ComboboxItemChanged(QString selection){
+void MainWindow::InstanceTypeChanged(QString selection){
 
-//    auto reverse_instance_type_mapper = Aws::EC2::Model::InstanceTypeMapper::GetInstanceTypeForName;
-    this->aws_utils.notebookConfig.instanceType = Aws::EC2::Model::InstanceTypeMapper::GetInstanceTypeForName(selection.toStdString().c_str());
-
+    // Check if valid type and set instance type
+    auto min_type = Aws::EC2::Model::InstanceType::t1_micro;
+    auto max_type = Aws::EC2::Model::InstanceType::inf1_24xlarge;
+    auto selected_type = Aws::EC2::Model::InstanceTypeMapper::GetInstanceTypeForName(selection.toStdString().c_str());
+    bool is_valid_type = (min_type <= selected_type) && (selected_type <= max_type);
+    if (is_valid_type) {
+        this->aws_utils.notebookConfig.instanceType = selected_type;
+    }
 }
 
-MainWindow::~MainWindow()
-{
+MainWindow::~MainWindow() {
     delete ui;
 }
-

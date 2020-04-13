@@ -8,6 +8,7 @@
 #include "awsutils.hpp"
 #include "launchdialog.h"
 #include "loadingscreendialog.h"
+#include <selectregiondialog.h>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -25,13 +26,13 @@ private:
     Ui::MainWindow *ui;
     LaunchDialog *launch_dialog;
     LoadingScreenDialog *loading_screen;
-    Ui::LaunchDialog *launch_dialog_ui;
-    Ui::LoadingScreenDialog *loading_screen_ui;
-
+    SelectRegionDialog *region_screen;
 
 private slots:
-      void LaunchButtonPressed();
-      void ComboboxItemChanged(QString selection);
+    void LaunchButtonPressed();
+    void InstanceTypeChanged(QString selection);
+    void PopulateInstanceTypeSelection();
+    void SetRegion();
 
 };
 #endif // MAINWINDOW_H
