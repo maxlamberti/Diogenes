@@ -6,6 +6,7 @@ CMakeLists.txt.user
 .idea
 *_autogen
 CMakeFiles
+*Images
 
 # Prerequisites
 *.d
