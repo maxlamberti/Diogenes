@@ -4,9 +4,6 @@
 #include "awsutils.hpp"
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
-#include "launchdialog.h"
-#include "loadingscreendialog.h"
-#include <selectregiondialog.h>
 
 
 MainWindow::MainWindow(QWidget *parent)
@@ -15,6 +12,11 @@ MainWindow::MainWindow(QWidget *parent)
 
     AwsUtils aws_utils;
     this->ui->setupUi(this);
+
+    // Set up error screen
+    this->error_screen = new ErrorDialog(this);
+    this->error_screen->setAttribute(Qt::WA_DeleteOnClose);
+    this->error_screen->setModal(true);
 
     // Display a loading screen that locks main window
     this->region_screen = new SelectRegionDialog(this, aws_utils.AvailableRegions);
@@ -53,16 +55,28 @@ void MainWindow::LaunchButtonPressed() {
     this->loading_screen->UpdateLoadingScreenText("Launching instance... <br><br><br>May take a few minutes...");
     this->loading_screen->open();
 
-    // Launch spot instance and open notebook dialog
+    // Launch spot instance
     this->aws_utils.CreateKeyPair();
     this->aws_utils.CreateSecurityGroup();
-    this->aws_utils.LaunchSpotInstance();
-    this->loading_screen->accept();
-    this->launch_dialog = new LaunchDialog(this, &this->aws_utils);
-    this->launch_dialog->setModal(true);
-    this->launch_dialog->setAttribute(Qt::WA_DeleteOnClose);
-    this->launch_dialog->UpdateLabelWithNotebookInfo(this->aws_utils.notebookConfig);
-    this->launch_dialog->open();
+    bool launch_was_success = false;
+    try {
+        this->aws_utils.LaunchSpotInstance();
+        launch_was_success = true;
+    } catch (const std::runtime_error& error) {
+        this->error_screen->SetErrorMessage(error.what());
+        this->loading_screen->accept();
+        this->error_screen->open();
+    }
+
+    // Open notebook launch dialog
+    if (launch_was_success) {
+        this->loading_screen->accept();
+        this->launch_dialog = new LaunchDialog(this, &this->aws_utils);
+        this->launch_dialog->setModal(true);
+        this->launch_dialog->setAttribute(Qt::WA_DeleteOnClose);
+        this->launch_dialog->UpdateLabelWithNotebookInfo(this->aws_utils.notebookConfig);
+        this->launch_dialog->open();
+    }
 }
 
 void MainWindow::InstanceTypeChanged(QString selection){

@@ -34,6 +34,9 @@ add_executable(broke-sage-notebooks
         selectregiondialog.cpp
         selectregiondialog.h
         selectregiondialog.ui
+        errordialog.cpp
+        errordialog.hpp
+        errordialog.ui
 )
 
 

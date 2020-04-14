@@ -9,6 +9,7 @@
 #include "launchdialog.h"
 #include "loadingscreendialog.h"
 #include <selectregiondialog.h>
+#include "errordialog.hpp"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -27,6 +28,7 @@ private:
     LaunchDialog *launch_dialog;
     LoadingScreenDialog *loading_screen;
     SelectRegionDialog *region_screen;
+    ErrorDialog *error_screen;
 
 private slots:
     void LaunchButtonPressed();
