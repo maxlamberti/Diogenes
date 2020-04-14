@@ -20,14 +20,21 @@
 #include <aws/ec2/model/RequestSpotInstancesRequest.h>
 #include <aws/ec2/model/DescribeInstanceTypesRequest.h>
 #include <aws/ec2/model/DescribeInstanceStatusRequest.h>
+#include <aws/ec2/model/DescribeSpotInstanceRequestsRequest.h>
 #include <aws/ec2/model/AuthorizeSecurityGroupIngressRequest.h>
+#include <aws/ec2/model/CancelSpotInstanceRequestsRequest.h>
 
 #include "awsutils.hpp"
 
 
-const auto DEFAULT_INSTANCE_TYPE = Aws::EC2::Model::InstanceType::t2_micro;
+using namespace Aws::EC2::Model;
+
+const auto DEFAULT_INSTANCE_TYPE = InstanceType::t2_micro;
 const std::string DEFAULT_KEY_NAME("DiogenesKey");
 const std::string DEFAULT_SEC_GROUP_NAME("DiogenesSecGroup");
+const std::set<std::string> HEALTHY_REQUEST_STATES = {
+    "pending-evaluation", "pending-fulfillment", "fulfilled"
+};
 
 
 std::string ShellExecute(const char* cmd) {
@@ -49,7 +56,6 @@ AwsUtils::AwsUtils() {
     this->notebookConfig.instanceType = DEFAULT_INSTANCE_TYPE;
     this->notebookConfig.keyName = DEFAULT_KEY_NAME;
     this->notebookConfig.secGroupName = DEFAULT_SEC_GROUP_NAME;
-//    this->notebookConfig.region = "us-east-1";  // TODO: if possible get from aws config
     this->AvailableRegions = {
         "us-east-1", "us-east-2", "us-west-1", "us-west-2", "ca-central-1",
         "eu-west-1", "eu-west-2", "eu-west-3", "eu-central-1",
@@ -77,8 +83,8 @@ std::vector<Aws::String> AwsUtils::MapEnumVecToSortedStrVec(std::vector<T> input
 }
 
 // instantiate template for specific data types
-template std::vector<Aws::String> AwsUtils::MapEnumVecToSortedStrVec<Aws::EC2::Model::InstanceType>(std::vector<Aws::EC2::Model::InstanceType>,
-                                                                                                    Aws::String (*)(Aws::EC2::Model::InstanceType));
+template std::vector<Aws::String> AwsUtils::MapEnumVecToSortedStrVec<InstanceType>(std::vector<InstanceType>,
+                                                                                                    Aws::String (*)(InstanceType));
 
 auto AwsUtils::GetSpotInstanceTypes() -> std::vector<Aws::String> {
 
@@ -93,13 +99,13 @@ auto AwsUtils::GetSpotInstanceTypes() -> std::vector<Aws::String> {
         Aws::EC2::EC2Client ec2_client(client_config);
 
         // Get response from AWS
-        Aws::EC2::Model::DescribeInstanceTypesRequest instance_type_request;
+        DescribeInstanceTypesRequest instance_type_request;
         auto instance_type_response = ec2_client.DescribeInstanceTypes(instance_type_request);
         auto instance_types_in_response = instance_type_response.GetResult().GetInstanceTypes();
 
         // Map response to string vector
-        auto instance_type_mapper = Aws::EC2::Model::InstanceTypeMapper::GetNameForInstanceType;
-        std::vector<Aws::EC2::Model::InstanceType> instance_type_vec;
+        auto instance_type_mapper = InstanceTypeMapper::GetNameForInstanceType;
+        std::vector<InstanceType> instance_type_vec;
         instance_type_vec.reserve(instance_types_in_response.size());
         for (auto val : instance_types_in_response) {
             instance_type_vec.push_back(val.GetInstanceType());
@@ -120,7 +126,7 @@ Aws::Vector<Aws::String> AwsUtils::CastToAwsStringVector(const std::string& str)
 std::string AwsUtils::GetInstanceId(const Aws::Vector<Aws::String>& request_id, const Aws::EC2::EC2Client& ec2_client) {
 
     // Query for instance id
-    Aws::EC2::Model::DescribeSpotInstanceRequestsRequest describe_spot_instance_request;
+    DescribeSpotInstanceRequestsRequest describe_spot_instance_request;
     describe_spot_instance_request.SetSpotInstanceRequestIds(request_id);
     auto describe_instance_response = ec2_client.DescribeSpotInstanceRequests(describe_spot_instance_request);
 
@@ -134,33 +140,33 @@ std::string AwsUtils::GetInstanceId(const Aws::Vector<Aws::String>& request_id, 
 };
 
 
-Aws::EC2::Model::SummaryStatus AwsUtils::GetInstanceStatus(const std::string& instance_id, const Aws::EC2::EC2Client& ec2_client) {
+SummaryStatus AwsUtils::GetInstanceStatus(const std::string& instance_id, const Aws::EC2::EC2Client& ec2_client) {
 
     // Query for instance status
-    Aws::EC2::Model::DescribeInstanceStatusRequest instance_status_request;
+    DescribeInstanceStatusRequest instance_status_request;
     auto aws_instance_id = this->CastToAwsStringVector(instance_id.c_str());
     instance_status_request.SetInstanceIds(aws_instance_id);
     auto instance_status_response = ec2_client.DescribeInstanceStatus(instance_status_request);
 
     // Sometimes response is empty
     auto instance_status_vec = instance_status_response.GetResult().GetInstanceStatuses();
-    Aws::EC2::Model::SummaryStatus instance_status;
+    SummaryStatus instance_status;
     if (instance_status_vec.size() != 0) {
         for (auto val : instance_status_vec) {
             instance_status = val.GetInstanceStatus().GetStatus();
         }
         instance_status = instance_status_vec[0].GetInstanceStatus().GetStatus();
     } else {
-        instance_status = Aws::EC2::Model::SummaryStatus::NOT_SET;
+        instance_status = SummaryStatus::NOT_SET;
     }
 
     return instance_status;
 }
 
-bool AwsUtils::IsGpuInstance(Aws::EC2::Model::InstanceType instance_type) {
+bool AwsUtils::IsGpuInstance(InstanceType instance_type) {
 
     bool is_gpu_instance;
-    std::string instance_type_str(Aws::EC2::Model::InstanceTypeMapper::GetNameForInstanceType(instance_type));
+    std::string instance_type_str(InstanceTypeMapper::GetNameForInstanceType(instance_type));
     char first_letter(instance_type_str.at(0));
     std::string first_three_letters = instance_type_str.substr(0, 3);
 
@@ -190,8 +196,8 @@ void AwsUtils::LaunchSpotInstance() {
         Aws::EC2::EC2Client ec2_client(client_config);
 
         // Request spot instance
-        Aws::EC2::Model::RequestSpotInstancesRequest spot_details;
-        Aws::EC2::Model::RequestSpotLaunchSpecification launch_spec;
+        RequestSpotInstancesRequest spot_details;
+        RequestSpotLaunchSpecification launch_spec;
         launch_spec.SetInstanceType(this->notebookConfig.instanceType);
         launch_spec.SetKeyName(this->notebookConfig.keyName.c_str());
         launch_spec.SetImageId(this->notebookConfig.imageId.c_str());
@@ -203,28 +209,39 @@ void AwsUtils::LaunchSpotInstance() {
 
         // Get initial data and request ID
         auto response_data = response.GetResult().GetSpotInstanceRequests();
-        auto request_id = this->CastToAwsStringVector(response_data[0].GetSpotInstanceRequestId().c_str());
+        std::string request_id_str(response_data[0].GetSpotInstanceRequestId());
+        auto request_id = this->CastToAwsStringVector(request_id_str.c_str());
         auto price = response_data[0].GetSpotPrice();
 
         // Query instance status until it's ready to connect to
         std::string instance_id;
-        Aws::EC2::Model::SummaryStatus instance_status;
+        SpotInstanceStatus request_status;  // this status is relevant before EC2 gets launched
+        SummaryStatus instance_status;  // this status is relevant after launch
         while (true) {
+
+            // If request cannot be fulfilled cancel
+            request_status = this->GetSpotRequestStatus(request_id_str, ec2_client);
+            if (HEALTHY_REQUEST_STATES.find(request_status.GetCode().c_str()) == HEALTHY_REQUEST_STATES.end()) {
+                CancelSpotInstanceRequestsRequest cancel_spot_request_request;
+                cancel_spot_request_request.SetSpotInstanceRequestIds(request_id);
+                ec2_client.CancelSpotInstanceRequests(cancel_spot_request_request);
+                throw std::runtime_error(request_status.GetMessage().c_str());
+            }
 
             if (instance_id.size() == 0) {
                 instance_id = this->GetInstanceId(request_id, ec2_client);
             }
 
-            std::this_thread::sleep_for(std::chrono::seconds (10));
             instance_status = this->GetInstanceStatus(instance_id, ec2_client);
-            if (instance_status == Aws::EC2::Model::SummaryStatus::ok) {
+            if (instance_status == SummaryStatus::ok) {
                 break;
             }
+            std::this_thread::sleep_for(std::chrono::seconds (10));
         }
 
         // Get public IP address of instance
-        Aws::EC2::Model::Filter filter;
-        Aws::EC2::Model::DescribeInstancesRequest describe_instance_request;
+        Filter filter;
+        DescribeInstancesRequest describe_instance_request;
         filter.SetName("instance-id");
         filter.SetValues(this->CastToAwsStringVector(instance_id));
         describe_instance_request.AddFilters(filter);
@@ -279,7 +296,7 @@ bool AwsUtils::TerminateInstance() {
         Aws::EC2::EC2Client ec2_client(client_config);
 
         // Terminate instance
-        Aws::EC2::Model::TerminateInstancesRequest termination_request;
+        TerminateInstancesRequest termination_request;
         termination_request.SetInstanceIds(this->CastToAwsStringVector(this->notebookConfig.instanceId));
         auto termination_response = ec2_client.TerminateInstances(termination_request);
         termination_is_successful = termination_response.GetResult().GetTerminatingInstances().size() > 0;
@@ -309,7 +326,7 @@ void AwsUtils::CreateKeyPair() {
         Aws::EC2::EC2Client ec2_client(client_config);
 
         // Create Key Pair
-        Aws::EC2::Model::CreateKeyPairRequest create_key_request;
+        CreateKeyPairRequest create_key_request;
         create_key_request.SetKeyName(this->notebookConfig.keyName.c_str());
         auto create_key_result = ec2_client.CreateKeyPair(create_key_request);
         auto key_material = create_key_result.GetResult().GetKeyMaterial();
@@ -340,7 +357,7 @@ void AwsUtils::DeleteKeyPair() {
         Aws::EC2::EC2Client ec2_client(client_config);
 
         // Delete Key Pair
-        Aws::EC2::Model::DeleteKeyPairRequest delete_key_request;
+        DeleteKeyPairRequest delete_key_request;
         delete_key_request.SetKeyName(this->notebookConfig.keyName.c_str());
         auto delete_key_result = ec2_client.DeleteKeyPair(delete_key_request);
 
@@ -365,16 +382,16 @@ void AwsUtils::CreateSecurityGroup() {
         Aws::EC2::EC2Client ec2_client(client_config);
 
         // Create security group
-        Aws::EC2::Model::CreateSecurityGroupRequest create_security_group_request;
+        CreateSecurityGroupRequest create_security_group_request;
         create_security_group_request.SetGroupName(this->notebookConfig.secGroupName.c_str());
         create_security_group_request.SetDescription("Diogenes security group. Open to public ssh on port 22.");
         auto create_security_group_response = ec2_client.CreateSecurityGroup(create_security_group_request);
 
         // Open port 22 on security group
-        Aws::EC2::Model::AuthorizeSecurityGroupIngressRequest auth_ingress_request;
+        AuthorizeSecurityGroupIngressRequest auth_ingress_request;
         auth_ingress_request.SetGroupName(this->notebookConfig.secGroupName.c_str());
-        Aws::EC2::Model::IpRange ip_range;
-        Aws::EC2::Model::IpPermission ip_permission;
+        IpRange ip_range;
+        IpPermission ip_permission;
         ip_range.SetCidrIp("0.0.0.0/0");
         ip_permission.SetIpProtocol("tcp");
         ip_permission.SetToPort(22);
@@ -396,12 +413,24 @@ void AwsUtils::DeleteSecurityGroup() {
         Aws::EC2::EC2Client ec2_client(client_config);
 
         // Delete Sec Group
-        Aws::EC2::Model::DeleteSecurityGroupRequest delete_security_group_request;
+        DeleteSecurityGroupRequest delete_security_group_request;
         delete_security_group_request.SetGroupName(this->notebookConfig.secGroupName.c_str());
         auto delete_security_group_response = ec2_client.DeleteSecurityGroup(delete_security_group_request);
     }
     Aws::ShutdownAPI(options);
 }
+
+SpotInstanceStatus AwsUtils::GetSpotRequestStatus(const std::string& request_id, const Aws::EC2::EC2Client& ec2_client) {
+
+    // Get status
+    DescribeSpotInstanceRequestsRequest describe_spot_request_request;
+    describe_spot_request_request.SetSpotInstanceRequestIds(this->CastToAwsStringVector(request_id));
+    auto describe_spot_request_result = ec2_client.DescribeSpotInstanceRequests(describe_spot_request_request);
+    SpotInstanceStatus status = describe_spot_request_result.GetResult().GetSpotInstanceRequests()[0].GetStatus();
+
+    return status;
+}
+
 
 std::string AwsUtils::GetImageId(bool is_gpu_instance) {
 
@@ -422,8 +451,8 @@ std::string AwsUtils::GetImageId(bool is_gpu_instance) {
         Aws::EC2::EC2Client ec2_client(client_config);
 
         // Query for suitable machine images
-        Aws::EC2::Model::DescribeImagesRequest describe_images_request;
-        Aws::EC2::Model::Filter name_filter, state_filter;
+        DescribeImagesRequest describe_images_request;
+        Filter name_filter, state_filter;
         state_filter.SetName("state");
         state_filter.SetValues(this->CastToAwsStringVector("available"));
         name_filter.SetName("name");

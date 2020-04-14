@@ -25,6 +25,7 @@ class AwsUtils {
   template <typename T> std::vector<Aws::String> MapEnumVecToSortedStrVec(std::vector<T> input_vector, Aws::String (*mapper)(T));
   Aws::Vector<Aws::String> CastToAwsStringVector(const std::string& str);
   Aws::EC2::Model::SummaryStatus GetInstanceStatus(const std::string& instance_id, const Aws::EC2::EC2Client& ec2_client);
+  Aws::EC2::Model::SpotInstanceStatus GetSpotRequestStatus(const std::string& request_id, const Aws::EC2::EC2Client& ec2_client);
   std::string GetInstanceId(const Aws::Vector<Aws::String>& request_id, const Aws::EC2::EC2Client& ec2_client);
   static bool IsGpuInstance(Aws::EC2::Model::InstanceType instance_type);
   static void OpenSshNotebookTunnel(std::string cmd);
