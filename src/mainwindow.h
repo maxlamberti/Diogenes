@@ -29,6 +29,7 @@ private:
     LoadingScreenDialog *loading_screen;
     SelectRegionDialog *region_screen;
     ErrorDialog *error_screen;
+    void OpenErrorDialog(const std::string& error);
 
 private slots:
     void LaunchButtonPressed();

@@ -13,11 +13,6 @@ MainWindow::MainWindow(QWidget *parent)
     AwsUtils aws_utils;
     this->ui->setupUi(this);
 
-    // Set up error screen
-    this->error_screen = new ErrorDialog(this);
-    this->error_screen->setAttribute(Qt::WA_DeleteOnClose);
-    this->error_screen->setModal(true);
-
     // Display a loading screen that locks main window
     this->region_screen = new SelectRegionDialog(this, aws_utils.AvailableRegions);
     this->region_screen->setAttribute(Qt::WA_DeleteOnClose);
@@ -46,6 +41,14 @@ void MainWindow::SetRegion() {
     this->aws_utils.notebookConfig.region = this->region_screen->SelectedRegion;
 }
 
+void MainWindow::OpenErrorDialog(const std::string& error) {
+    this->error_screen = new ErrorDialog(this);
+    this->error_screen->setAttribute(Qt::WA_DeleteOnClose);
+    this->error_screen->setModal(true);
+    this->error_screen->SetErrorMessage(error);
+    this->error_screen->open();
+}
+
 void MainWindow::LaunchButtonPressed() {
 
     // Display a loading screen that locks main window
@@ -63,9 +66,8 @@ void MainWindow::LaunchButtonPressed() {
         this->aws_utils.LaunchSpotInstance();
         launch_was_success = true;
     } catch (const std::runtime_error& error) {
-        this->error_screen->SetErrorMessage(error.what());
         this->loading_screen->accept();
-        this->error_screen->open();
+        this->OpenErrorDialog(error.what());
     }
 
     // Open notebook launch dialog
