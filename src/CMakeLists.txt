@@ -14,6 +14,10 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20")
 
+if(NOT TARGET spdlog)
+    # Stand-alone build
+    find_package(spdlog REQUIRED)
+endif()
 find_package(Qt5 COMPONENTS Widgets REQUIRED)
 find_package(AWSSDK REQUIRED COMPONENTS ec2)
 
@@ -42,6 +46,7 @@ add_executable(broke-sage-notebooks
 
 target_compile_features(broke-sage-notebooks PUBLIC cxx_std_11)
 target_link_libraries(broke-sage-notebooks
-    PRIVATE Qt5::Widgets
-    ${AWSSDK_LINK_LIBRARIES}
+        PRIVATE Qt5::Widgets
+        PRIVATE spdlog::spdlog
+        ${AWSSDK_LINK_LIBRARIES}
 )
