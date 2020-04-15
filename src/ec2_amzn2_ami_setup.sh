@@ -14,6 +14,9 @@ conda init bash
 # Start persistent jupyter lab session
 screen -d -m jupyter lab --no-browser --port=5678
 
+# Clean up
+rm $HOME/ec2_amzn2_ami_setup.sh
+
 # View connection notebook link/token by running the next line on ec2 machine:
 # jupyter notebook list
 
