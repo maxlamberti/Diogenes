@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <algorithm>
 #include <filesystem>
+
 #include <aws/core/Aws.h>
 #include <aws/ec2/EC2Client.h>
 #include <aws/ec2/model/CreateKeyPairRequest.h>
@@ -23,6 +24,8 @@
 #include <aws/ec2/model/DescribeSpotInstanceRequestsRequest.h>
 #include <aws/ec2/model/AuthorizeSecurityGroupIngressRequest.h>
 #include <aws/ec2/model/CancelSpotInstanceRequestsRequest.h>
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/basic_file_sink.h>
 
 #include "awsutils.hpp"
 
@@ -32,10 +35,17 @@ using namespace Aws::EC2::Model;
 const auto DEFAULT_INSTANCE_TYPE = InstanceType::t2_micro;
 const std::string DEFAULT_KEY_NAME("DiogenesKey");
 const std::string DEFAULT_SEC_GROUP_NAME("DiogenesSecGroup");
+const int MIN_BLOCK_SIZE = 8;  // GB
+const bool DEFAULT_DELETE_STORAGE_STATE = true;
+const std::set<std::string> AVAILABLE_REGIONS = {
+    "us-east-1", "us-east-2", "us-west-1", "us-west-2", "ca-central-1",
+    "eu-west-1", "eu-west-2", "eu-west-3", "eu-central-1",
+    "ap-southeast-1", "ap-southeast-2", "ap-northeast-1", "ap-northeast-2",
+    "ap-south-1", "sa-east-1"
+};
 const std::set<std::string> HEALTHY_REQUEST_STATES = {
     "pending-evaluation", "pending-fulfillment", "fulfilled"
 };
-
 
 std::string ShellExecute(const char* cmd) {
     std::array<char, 128> buffer;
@@ -56,12 +66,9 @@ AwsUtils::AwsUtils() {
     this->notebookConfig.instanceType = DEFAULT_INSTANCE_TYPE;
     this->notebookConfig.keyName = DEFAULT_KEY_NAME;
     this->notebookConfig.secGroupName = DEFAULT_SEC_GROUP_NAME;
-    this->AvailableRegions = {
-        "us-east-1", "us-east-2", "us-west-1", "us-west-2", "ca-central-1",
-        "eu-west-1", "eu-west-2", "eu-west-3", "eu-central-1",
-        "ap-southeast-1", "ap-southeast-2", "ap-northeast-1", "ap-northeast-2",
-        "ap-south-1", "sa-east-1"
-    };
+    this->AvailableRegions = AVAILABLE_REGIONS;
+    this->notebookConfig.deleteStorage = DEFAULT_DELETE_STORAGE_STATE;
+    this->notebookConfig.blockSize = MIN_BLOCK_SIZE;  // GB
 }
 
 AwsUtils::~AwsUtils() {}
@@ -195,6 +202,18 @@ void AwsUtils::LaunchSpotInstance() {
         client_config.region = this->notebookConfig.region;
         Aws::EC2::EC2Client ec2_client(client_config);
 
+        // Configure block storage device
+        DescribeImagesRequest describe_image_request;
+        describe_image_request.SetImageIds(this->CastToAwsStringVector(this->notebookConfig.imageId));
+        auto describe_image_response = ec2_client.DescribeImages(describe_image_request);
+        auto block_name = describe_image_response.GetResult().GetImages()[0].GetBlockDeviceMappings()[0].GetDeviceName();
+        BlockDeviceMapping root_device_mapping;
+        EbsBlockDevice root_device;
+        root_device_mapping.SetDeviceName(block_name);
+        root_device.SetDeleteOnTermination(this->notebookConfig.deleteStorage);
+        root_device.SetVolumeSize(std::max(MIN_BLOCK_SIZE, this->notebookConfig.blockSize));
+        root_device_mapping.SetEbs(root_device);
+
         // Request spot instance
         RequestSpotInstancesRequest spot_details;
         RequestSpotLaunchSpecification launch_spec;
@@ -202,7 +221,7 @@ void AwsUtils::LaunchSpotInstance() {
         launch_spec.SetKeyName(this->notebookConfig.keyName.c_str());
         launch_spec.SetImageId(this->notebookConfig.imageId.c_str());
         launch_spec.SetSecurityGroups(this->CastToAwsStringVector(this->notebookConfig.secGroupName));
-        //        launch_spec.AddBlockDeviceMappings();  // set persistent block storage here
+        launch_spec.AddBlockDeviceMappings(root_device_mapping);
         spot_details.SetInstanceCount(1);
         spot_details.SetLaunchSpecification(launch_spec);
         auto response = ec2_client.RequestSpotInstances(spot_details);
@@ -256,11 +275,13 @@ void AwsUtils::LaunchSpotInstance() {
         std::string run_install_script = ssh_base + " sh /home/ec2-user/" + install_script;
         std::string query_running_jupyter_sessions = ssh_base + " jupyter notebook list";
         ShellExecute(download_install_script.c_str());
-        ShellExecute(run_install_script.c_str());
+        std::cout << "runing installs" << std::endl;
+        ShellExecute(run_install_script.c_str());  // TODO: async
 
         // Get notebook URL
         std::string running_notebook_sessions;
         while (true) {
+            std::cout << "in loop" << std::endl;
             running_notebook_sessions = ShellExecute(query_running_jupyter_sessions.c_str());
             if (running_notebook_sessions.find("http:") != std::string::npos) {
                 break;

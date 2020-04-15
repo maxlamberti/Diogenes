@@ -14,7 +14,8 @@
 struct NotebookConfig {
     std::string imageId, keyName, keyPath, instanceId, price, notebookUrl,
     publicIp, secGroupName, region;
-    bool isGpuInstance;
+    bool isGpuInstance, deleteStorage;
+    int blockSize;
     Aws::EC2::Model::InstanceType instanceType;
 };
 

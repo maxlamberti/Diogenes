@@ -27,6 +27,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     this->ui->InstanceTypeComboBox->addItem(QString("Select Instance Type"));
     this->ui->InstanceTypeComboBox->setStyleSheet("combobox-popup: 0;");
+    this->ui->VolumeSizeLineEdit->setPlaceholderText(QString("Storage Size (8GB Default)"));
 
 }
 
@@ -49,7 +50,25 @@ void MainWindow::OpenErrorDialog(const std::string& error) {
     this->error_screen->open();
 }
 
+int MainWindow::GetStorageSize() {
+    int storage_size = 0;
+    auto input_text = this->ui->VolumeSizeLineEdit->text().toStdString();
+    if (input_text.size() > 0) {
+        try {
+            storage_size = std::stoi(input_text);
+        }
+        catch (const std::exception &e) {
+            storage_size = 0;
+        }
+    }
+    return storage_size;
+}
+
 void MainWindow::LaunchButtonPressed() {
+
+    // Get and sanitize storage volume input
+    this->aws_utils.notebookConfig.blockSize = this->GetStorageSize();
+    this->aws_utils.notebookConfig.deleteStorage = this->ui->DeleteStorageButton->isChecked();
 
     // Display a loading screen that locks main window
     this->loading_screen = new LoadingScreenDialog(this);

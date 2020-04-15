@@ -30,6 +30,7 @@ private:
     SelectRegionDialog *region_screen;
     ErrorDialog *error_screen;
     void OpenErrorDialog(const std::string& error);
+    int GetStorageSize();
 
 private slots:
     void LaunchButtonPressed();

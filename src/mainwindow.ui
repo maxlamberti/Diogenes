@@ -16,7 +16,7 @@
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout">
     <item>
-     <widget class="QLabel" name="label">
+     <widget class="QLabel" name="TitleLabel">
       <property name="text">
        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:24pt; font-weight:600;&quot;&gt;Diogenes&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
       </property>
@@ -28,6 +28,13 @@
       </property>
       <property name="alignment">
        <set>Qt::AlignCenter</set>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="Line" name="line_2">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
       </property>
      </widget>
     </item>
@@ -45,9 +52,19 @@
      </widget>
     </item>
     <item>
-     <widget class="QLabel" name="label_2">
+     <widget class="QLineEdit" name="VolumeSizeLineEdit">
       <property name="text">
-       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Useful Links: &lt;/p&gt;&lt;p&gt;- www.fwfwe.com&lt;br/&gt;- www.s3.com&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       <string/>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QRadioButton" name="DeleteStorageButton">
+      <property name="text">
+       <string>Delete Storage On Termination </string>
+      </property>
+      <property name="checked">
+       <bool>true</bool>
       </property>
      </widget>
     </item>
@@ -58,9 +75,31 @@
       </property>
      </widget>
     </item>
+    <item>
+     <widget class="Line" name="line">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QLabel" name="InfoLabel">
+      <property name="text">
+       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Quick Links: &lt;br/&gt;• &lt;a href=&quot;https://aws.amazon.com/ec2/spot/pricing/&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0068da;&quot;&gt;EC2 Spot Pricing&lt;br/&gt;&lt;/span&gt;&lt;/a&gt;• &lt;a href=&quot;https://aws.amazon.com/ec2/pricing/on-demand/&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0068da;&quot;&gt;EC2 On-Demand Pricing&lt;br/&gt;&lt;/span&gt;&lt;/a&gt;• &lt;a href=&quot;https://aws.amazon.com/ec2/instance-types/&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0068da;&quot;&gt;EC2 Instance Types&lt;br/&gt;&lt;/span&gt;&lt;/a&gt;• &lt;a href=&quot;https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-attaching-volume.html&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0068da;&quot;&gt;Attach Existing EBS Volume&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      </property>
+      <property name="wordWrap">
+       <bool>true</bool>
+      </property>
+      <property name="openExternalLinks">
+       <bool>true</bool>
+      </property>
+      <property name="textInteractionFlags">
+       <set>Qt::LinksAccessibleByMouse</set>
+      </property>
+     </widget>
+    </item>
    </layout>
   </widget>
-  <widget class="QStatusBar" name="statusbar"/>
  </widget>
  <resources/>
  <connections/>
