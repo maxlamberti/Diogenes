@@ -6,82 +6,59 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>657</width>
-    <height>388</height>
+    <width>230</width>
+    <height>372</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <widget class="QLabel" name="label">
-    <property name="geometry">
-     <rect>
-      <x>0</x>
-      <y>0</y>
-      <width>301</width>
-      <height>16</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Broke Sage Notebook Launcher</string>
-    </property>
-   </widget>
-   <widget class="QLabel" name="InstanceTypeLabel">
-    <property name="geometry">
-     <rect>
-      <x>10</x>
-      <y>50</y>
-      <width>101</width>
-      <height>16</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Instance Type:</string>
-    </property>
-   </widget>
-   <widget class="QComboBox" name="InstanceTypeComboBox">
-    <property name="geometry">
-     <rect>
-      <x>110</x>
-      <y>40</y>
-      <width>131</width>
-      <height>32</height>
-     </rect>
-    </property>
-    <property name="currentText">
-     <string/>
-    </property>
-    <property name="maxVisibleItems">
-     <number>8</number>
-    </property>
-    <property name="frame">
-     <bool>true</bool>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="RequestInstanceButton">
-    <property name="geometry">
-     <rect>
-      <x>240</x>
-      <y>180</y>
-      <width>112</width>
-      <height>32</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Launch</string>
-    </property>
-   </widget>
-  </widget>
-  <widget class="QMenuBar" name="menubar">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>657</width>
-     <height>22</height>
-    </rect>
-   </property>
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
+     <widget class="QLabel" name="label">
+      <property name="text">
+       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:24pt; font-weight:600;&quot;&gt;Diogenes&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      </property>
+      <property name="textFormat">
+       <enum>Qt::AutoText</enum>
+      </property>
+      <property name="scaledContents">
+       <bool>false</bool>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignCenter</set>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QComboBox" name="InstanceTypeComboBox">
+      <property name="currentText">
+       <string/>
+      </property>
+      <property name="maxVisibleItems">
+       <number>8</number>
+      </property>
+      <property name="frame">
+       <bool>true</bool>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QLabel" name="label_2">
+      <property name="text">
+       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Useful Links: &lt;/p&gt;&lt;p&gt;- www.fwfwe.com&lt;br/&gt;- www.s3.com&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QPushButton" name="RequestInstanceButton">
+      <property name="text">
+       <string>Launch</string>
+      </property>
+     </widget>
+    </item>
+   </layout>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
