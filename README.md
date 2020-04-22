@@ -1,2 +1,5 @@
-# broke-sage-notebooks
-For the Broke Sage: Sets Up Remote Jupyter Notebook on AWS Spot Instance
+# Diogenes
+
+For broke sages: Run remote Jupyter Notebooks cheap and easy using AWS Spot Instances.
+
+![Diogenes and the AWS legionary](https://github.com/maxlamberti/Diogenes/blob/master/resources/diogenes.png)
