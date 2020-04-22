@@ -1,0 +1,6 @@
+[submodule "Diogenes/vendor/aws-sdk-cpp"]
+	path = Diogenes/vendor/aws-sdk-cpp
+	url = https://github.com/aws/aws-sdk-cpp.git
+[submodule "Diogenes/vendor/qt5"]
+	path = Diogenes/vendor/qt5
+	url = https://code.qt.io/qt/qt5.git
