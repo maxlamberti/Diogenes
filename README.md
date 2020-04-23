@@ -5,7 +5,7 @@
 The cloud product broke sages have been waiting for! This app runs remote Jupyter Notebooks cheap and easy using AWS Spot instances. It essentially offers a frugal alternative to running notebooks through the AWS SageMaker service. By using Spot instances instead of EC2 On-Demand pricing, the user can shave 60-80% off of their SageMaker bill.
 
 <img src="https://github.com/maxlamberti/Diogenes/blob/master/resources/diogenes.png" width="500">
-The original broke sage Diogenes when the SageMaker bill collector comes (*Est. 320 BC*).
+The original broke sage Diogenes when the SageMaker bill collector comes (Est. 320 BC).
 
 ## Status
 
