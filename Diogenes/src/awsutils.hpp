@@ -22,7 +22,7 @@ struct NotebookConfig {
 class AwsUtils {
 
  private:
-  Aws::SDKOptions SDKOptions;
+  Aws::Client::ClientConfiguration client_config;
   template <typename T> std::vector<Aws::String> MapEnumVecToSortedStrVec(std::vector<T> input_vector, Aws::String (*mapper)(T));
   Aws::Vector<Aws::String> CastToAwsStringVector(const std::string& str);
   Aws::EC2::Model::SummaryStatus GetInstanceStatus(const std::string& instance_id, const Aws::EC2::EC2Client& ec2_client);
@@ -32,6 +32,7 @@ class AwsUtils {
   static void OpenSshNotebookTunnel(std::string cmd);
   std::string GetImageId(bool is_gpu_instance);
   void InitializeRegion();
+  Aws::EC2::EC2Client GetClient();
 
  public:
   AwsUtils();

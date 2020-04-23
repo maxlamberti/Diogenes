@@ -37,6 +37,7 @@ const std::string DEFAULT_KEY_NAME("DiogenesKey");
 const std::string DEFAULT_SEC_GROUP_NAME("DiogenesSecGroup");
 const int MIN_BLOCK_SIZE = 8;  // GB
 const bool DEFAULT_DELETE_STORAGE_STATE = true;
+const std::string DEFAULT_REGION = "us-east-1";
 const std::set<std::string> AVAILABLE_REGIONS = {
     "us-east-1", "us-east-2", "us-west-1", "us-west-2", "ca-central-1",
     "eu-west-1", "eu-west-2", "eu-west-3", "eu-central-1",
@@ -69,6 +70,10 @@ AwsUtils::AwsUtils() {
     this->AvailableRegions = AVAILABLE_REGIONS;
     this->notebookConfig.deleteStorage = DEFAULT_DELETE_STORAGE_STATE;
     this->notebookConfig.blockSize = MIN_BLOCK_SIZE;  // GB
+    this->notebookConfig.region = DEFAULT_REGION;
+    this->client_config = Aws::Client::ClientConfiguration();
+    this->client_config.region = DEFAULT_REGION;
+
 }
 
 AwsUtils::~AwsUtils() {}
@@ -98,9 +103,7 @@ auto AwsUtils::GetSpotInstanceTypes() -> std::vector<Aws::String> {
     std::vector<Aws::String> all_instance_types;
 
     // Set up client
-    Aws::Client::ClientConfiguration client_config;
-    client_config.region = this->notebookConfig.region;
-    Aws::EC2::EC2Client ec2_client(client_config);
+    auto ec2_client = this->GetClient();
 
     // Get response from AWS
     DescribeInstanceTypesRequest instance_type_request;
@@ -119,6 +122,13 @@ auto AwsUtils::GetSpotInstanceTypes() -> std::vector<Aws::String> {
     return all_instance_types;
 
 };
+
+Aws::EC2::EC2Client AwsUtils::GetClient() {
+    client_config.region = this->notebookConfig.region;
+    Aws::EC2::EC2Client ec2_client(this->client_config);
+    return ec2_client;
+}
+
 
 Aws::Vector<Aws::String> AwsUtils::CastToAwsStringVector(const std::string& str) {
     Aws::Vector<Aws::String> result_vec = {Aws::String(str)};
@@ -190,9 +200,7 @@ void AwsUtils::LaunchSpotInstance() {
     this->notebookConfig.imageId = this->GetImageId(this->notebookConfig.isGpuInstance);
 
     // Set up client
-    Aws::Client::ClientConfiguration client_config;
-    client_config.region = this->notebookConfig.region;
-    Aws::EC2::EC2Client ec2_client(client_config);
+    auto ec2_client = this->GetClient();
 
     // Configure block storage device
     DescribeImagesRequest describe_image_request;
@@ -300,9 +308,7 @@ bool AwsUtils::TerminateInstance() {
     bool termination_is_successful;
 
     // Set up client
-    Aws::Client::ClientConfiguration client_config;
-    client_config.region = this->notebookConfig.region;
-    Aws::EC2::EC2Client ec2_client(client_config);
+    auto ec2_client = this->GetClient();
 
     // Terminate instance
     TerminateInstancesRequest termination_request;
@@ -325,9 +331,7 @@ void AwsUtils::CreateKeyPair() {
     this->DeleteKeyPair();
 
     // Set up client
-    Aws::Client::ClientConfiguration client_config;
-    client_config.region = this->notebookConfig.region;
-    Aws::EC2::EC2Client ec2_client(client_config);
+    auto ec2_client = this->GetClient();
 
     // Create Key Pair
     CreateKeyPairRequest create_key_request;
@@ -352,9 +356,7 @@ void AwsUtils::CreateKeyPair() {
 void AwsUtils::DeleteKeyPair() {
 
     // Set up client
-    Aws::Client::ClientConfiguration client_config;
-    client_config.region = this->notebookConfig.region;
-    Aws::EC2::EC2Client ec2_client(client_config);
+    auto ec2_client = this->GetClient();
 
     // Delete Key Pair
     DeleteKeyPairRequest delete_key_request;
@@ -372,9 +374,7 @@ void AwsUtils::DeleteKeyPair() {
 void AwsUtils::CreateSecurityGroup() {
 
     // Set up client
-    Aws::Client::ClientConfiguration client_config;
-    client_config.region = this->notebookConfig.region;
-    Aws::EC2::EC2Client ec2_client(client_config);
+    auto ec2_client = this->GetClient();
 
     // Create security group
     CreateSecurityGroupRequest create_security_group_request;
@@ -400,9 +400,7 @@ void AwsUtils::CreateSecurityGroup() {
 void AwsUtils::DeleteSecurityGroup() {
 
     // Set up client
-    Aws::Client::ClientConfiguration client_config;
-    client_config.region = this->notebookConfig.region;
-    Aws::EC2::EC2Client ec2_client(client_config);
+    auto ec2_client = this->GetClient();
 
     // Delete Sec Group
     DeleteSecurityGroupRequest delete_security_group_request;
@@ -434,9 +432,7 @@ std::string AwsUtils::GetImageId(bool is_gpu_instance) {
     }
 
     // Set up client
-    Aws::Client::ClientConfiguration client_config;
-    client_config.region = this->notebookConfig.region;
-    Aws::EC2::EC2Client ec2_client(client_config);
+    auto ec2_client = this->GetClient();
 
     // Query for suitable machine images
     DescribeImagesRequest describe_images_request;
