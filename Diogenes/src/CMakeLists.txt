@@ -31,7 +31,6 @@ endif()
 find_package(Qt5 COMPONENTS Widgets REQUIRED)
 find_package(AWSSDK REQUIRED COMPONENTS ec2)
 
-
 # add executable
 add_executable(${PROJECT_NAME} MACOSX_BUNDLE
         main.cpp
@@ -52,17 +51,24 @@ add_executable(${PROJECT_NAME} MACOSX_BUNDLE
         errordialog.cpp
         errordialog.hpp
         errordialog.ui
+        AppIcon.icns
         )
 
+# Specify properties: C++ standard, AppIcon, Custom Plist file
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
+set_source_files_properties(AppIcon.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+set_target_properties(${PROJECT_NAME} PROPERTIES
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_INSTALL_PREFIX}/../Info.plist"
+        )
 
+# Link libraries
 target_link_libraries(${PROJECT_NAME}
         PRIVATE Qt5::Widgets
         PRIVATE spdlog::spdlog
         ${AWSSDK_LINK_LIBRARIES}
         )
 
-# based on code from CMake's QtDialog/CMakeLists.txt
+# Based on code from CMake's QtDialog/CMakeLists.txt
 macro(install_qt5_plugin _qt_plugin_name _qt_plugins_var _prefix)
     get_target_property(_qt_plugin_path "${_qt_plugin_name}" LOCATION)
     if(EXISTS "${_qt_plugin_path}")
