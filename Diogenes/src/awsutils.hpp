@@ -9,11 +9,12 @@
 #include <aws/ec2/model/DescribeImagesRequest.h>
 #include <aws/ec2/model/DescribeInstanceTypesRequest.h>
 #include <aws/ec2/model/DescribeSpotInstanceRequestsRequest.h>
+#include <aws/ec2/model/RequestSpotLaunchSpecification.h>
 
 
 struct NotebookConfig {
     std::string imageId, keyName, keyPath, instanceId, price, notebookUrl,
-    publicIp, secGroupName, region;
+    publicIp, secGroupName, region, requestId;
     bool isGpuInstance, deleteStorage;
     int blockSize;
     Aws::EC2::Model::InstanceType instanceType;
@@ -33,8 +34,14 @@ class AwsUtils {
   std::string GetImageId(bool is_gpu_instance);
   void InitializeRegion();
   Aws::EC2::EC2Client GetClient();
+  Aws::EC2::Model::RequestSpotLaunchSpecification GetLaunchSpecification();
+  std::string MonitorInstanceLaunch();
+  std::string GetInstanceIpAddress();
+  Aws::EC2::Model::RequestSpotInstancesResponse RequestInstance(Aws::EC2::Model::RequestSpotLaunchSpecification launch_spec);
+  void RunInstanceInstallScripts();
+  std::string GetNotebookUrl();
 
- public:
+public:
   AwsUtils();
   ~AwsUtils();
   NotebookConfig notebookConfig;

@@ -192,45 +192,52 @@ void AwsUtils::OpenSshNotebookTunnel(std::string cmd) {
     ShellExecute(cmd.c_str());
 }
 
-void AwsUtils::LaunchSpotInstance() {
+RequestSpotLaunchSpecification AwsUtils::GetLaunchSpecification() {
 
-    std::string notebook_token_url;
-
-    this->notebookConfig.isGpuInstance = this->IsGpuInstance(this->notebookConfig.instanceType);
-    this->notebookConfig.imageId = this->GetImageId(this->notebookConfig.isGpuInstance);
-
-    // Set up client
+    // Get ec2 client
     auto ec2_client = this->GetClient();
 
-    // Configure block storage device
+    // Configure root block storage device
     DescribeImagesRequest describe_image_request;
     describe_image_request.SetImageIds(this->CastToAwsStringVector(this->notebookConfig.imageId));
     auto describe_image_response = ec2_client.DescribeImages(describe_image_request);
     auto block_name = describe_image_response.GetResult().GetImages()[0].GetBlockDeviceMappings()[0].GetDeviceName();
-    BlockDeviceMapping root_device_mapping;
     EbsBlockDevice root_device;
+    BlockDeviceMapping root_device_mapping;
     root_device_mapping.SetDeviceName(block_name);
     root_device.SetDeleteOnTermination(this->notebookConfig.deleteStorage);
     root_device.SetVolumeSize(std::max(MIN_BLOCK_SIZE, this->notebookConfig.blockSize));
     root_device_mapping.SetEbs(root_device);
 
-    // Request spot instance
-    RequestSpotInstancesRequest spot_details;
+    // Set launch specifications
     RequestSpotLaunchSpecification launch_spec;
     launch_spec.SetInstanceType(this->notebookConfig.instanceType);
     launch_spec.SetKeyName(this->notebookConfig.keyName.c_str());
     launch_spec.SetImageId(this->notebookConfig.imageId.c_str());
     launch_spec.SetSecurityGroups(this->CastToAwsStringVector(this->notebookConfig.secGroupName));
     launch_spec.AddBlockDeviceMappings(root_device_mapping);
+
+    return launch_spec;
+}
+
+
+Aws::EC2::Model::RequestSpotInstancesResponse AwsUtils::RequestInstance(RequestSpotLaunchSpecification launch_spec) {
+
+    // Request spot instance
+    auto ec2_client = this->GetClient();
+    RequestSpotInstancesRequest spot_details;
     spot_details.SetInstanceCount(1);
     spot_details.SetLaunchSpecification(launch_spec);
-    auto response = ec2_client.RequestSpotInstances(spot_details);
+    auto response = ec2_client.RequestSpotInstances(spot_details).GetResult();
 
-    // Get initial data and request ID
-    auto response_data = response.GetResult().GetSpotInstanceRequests();
-    std::string request_id_str(response_data[0].GetSpotInstanceRequestId());
-    auto request_id = this->CastToAwsStringVector(request_id_str.c_str());
-    auto price = response_data[0].GetSpotPrice();
+    return response;
+}
+
+std::string AwsUtils::MonitorInstanceLaunch() {
+
+    // Set up client and data
+    auto ec2_client = this->GetClient();
+    auto request_id = this->CastToAwsStringVector(this->notebookConfig.requestId.c_str());
 
     // Query instance status until it's ready to connect to
     std::string instance_id;
@@ -239,7 +246,7 @@ void AwsUtils::LaunchSpotInstance() {
     while (true) {
 
         // If request cannot be fulfilled cancel
-        request_status = this->GetSpotRequestStatus(request_id_str, ec2_client);
+        request_status = this->GetSpotRequestStatus(this->notebookConfig.requestId, ec2_client);
         if (HEALTHY_REQUEST_STATES.find(request_status.GetCode().c_str()) == HEALTHY_REQUEST_STATES.end()) {
             CancelSpotInstanceRequestsRequest cancel_spot_request_request;
             cancel_spot_request_request.SetSpotInstanceRequestIds(request_id);
@@ -258,30 +265,44 @@ void AwsUtils::LaunchSpotInstance() {
         std::this_thread::sleep_for(std::chrono::seconds (10));
     }
 
+    return instance_id;
+}
+
+std::string AwsUtils::GetInstanceIpAddress() {
+
     // Get public IP address of instance
+    auto ec2_client = this->GetClient();
     Filter filter;
-    DescribeInstancesRequest describe_instance_request;
     filter.SetName("instance-id");
-    filter.SetValues(this->CastToAwsStringVector(instance_id));
+    filter.SetValues(this->CastToAwsStringVector(this->notebookConfig.instanceId));
+    DescribeInstancesRequest describe_instance_request;
     describe_instance_request.AddFilters(filter);
     auto describe_instances_response = ec2_client.DescribeInstances(describe_instance_request);
     auto ip_address = describe_instances_response.GetResult().GetReservations()[0].GetInstances()[0].GetPublicIpAddress();
     std::string ip_address_str = ip_address.c_str();
 
+    return ip_address_str;
+}
+
+void AwsUtils::RunInstanceInstallScripts() {
+
     // Run install scripts
     std::string install_script = this->notebookConfig.isGpuInstance? "ec2_dl_ami_setup.sh" : "ec2_amzn2_ami_setup.sh";
-    std::string ssh_base = "ssh -oStrictHostKeyChecking=no -i " + this->notebookConfig.keyPath + " ec2-user@" + ip_address_str;
+    std::string ssh_base = "ssh -oStrictHostKeyChecking=no -i " + this->notebookConfig.keyPath + " ec2-user@" + this->notebookConfig.publicIp;
     std::string download_install_script = ssh_base + " wget https://ec2setup.s3.us-east-2.amazonaws.com/" + install_script + " /home/ec2-user/" + install_script;
     std::string run_install_script = ssh_base + " sh /home/ec2-user/" + install_script;
-    std::string query_running_jupyter_sessions = ssh_base + " jupyter notebook list";
     ShellExecute(download_install_script.c_str());
-    std::cout << "runing installs" << std::endl;
-    ShellExecute(run_install_script.c_str());  // TODO: async
+    ShellExecute(run_install_script.c_str());  // TODO: run asynchronously
+
+}
+
+std::string AwsUtils::GetNotebookUrl() {
 
     // Get notebook URL
+    std::string ssh_base = "ssh -oStrictHostKeyChecking=no -i " + this->notebookConfig.keyPath + " ec2-user@" + this->notebookConfig.publicIp;
+    std::string query_running_jupyter_sessions = ssh_base + " jupyter notebook list";
     std::string running_notebook_sessions;
     while (true) {
-        std::cout << "in loop" << std::endl;
         running_notebook_sessions = ShellExecute(query_running_jupyter_sessions.c_str());
         if (running_notebook_sessions.find("http:") != std::string::npos) {
             break;
@@ -290,17 +311,38 @@ void AwsUtils::LaunchSpotInstance() {
     }
     auto url_start_idx = running_notebook_sessions.find("http://");
     auto url_end_idx = running_notebook_sessions.find(" :: ");
-    notebook_token_url = running_notebook_sessions.substr(url_start_idx, url_end_idx - url_start_idx);
+    auto notebook_token_url = running_notebook_sessions.substr(url_start_idx, url_end_idx - url_start_idx);
+
+    return notebook_token_url;
+}
+
+void AwsUtils::LaunchSpotInstance() {
+
+    // Determine instance type and corresponding imageId
+    this->notebookConfig.isGpuInstance = this->IsGpuInstance(this->notebookConfig.instanceType);
+    this->notebookConfig.imageId = this->GetImageId(this->notebookConfig.isGpuInstance);
+
+    // Request spot instance
+    auto launch_spec = GetLaunchSpecification();
+    auto response = this->RequestInstance(launch_spec);
+
+    // Get initial data and request ID
+    auto response_data = response.GetSpotInstanceRequests();
+    this->notebookConfig.requestId = response_data[0].GetSpotInstanceRequestId();
+    auto request_id = this->CastToAwsStringVector(this->notebookConfig.requestId.c_str());
+    this->notebookConfig.price = response_data[0].GetSpotPrice();
+
+    // Query instance status until it's ready to connect to
+    this->notebookConfig.instanceId = this->MonitorInstanceLaunch();
+    this->notebookConfig.publicIp = this->GetInstanceIpAddress();
+
+    // Run instance install scripts and get notebook URL
+    this->RunInstanceInstallScripts();
+    this->notebookConfig.notebookUrl = this->GetNotebookUrl();
 
     // Open detached thread to keep notebook connection open
-    std::string open_jupyter_connection = "ssh -CNL localhost:5678:localhost:5678 -i " + this->notebookConfig.keyPath + " ec2-user@" + ip_address_str;
+    std::string open_jupyter_connection = "ssh -CNL localhost:5678:localhost:5678 -i " + this->notebookConfig.keyPath + " ec2-user@" + this->notebookConfig.publicIp;
     std::thread(this->OpenSshNotebookTunnel, open_jupyter_connection).detach();
-
-    this->notebookConfig.price = price;
-    this->notebookConfig.instanceId = instance_id;
-    this->notebookConfig.notebookUrl = notebook_token_url;
-    this->notebookConfig.publicIp = ip_address;
-
 }
 
 bool AwsUtils::TerminateInstance() {
