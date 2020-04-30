@@ -6,6 +6,7 @@
 #include <aws/core/Aws.h>
 #include <aws/ec2/EC2Client.h>
 #include <aws/ec2/EC2Request.h>
+#include <aws/core/auth/AWSCredentials.h>
 #include <aws/ec2/model/DescribeImagesRequest.h>
 #include <aws/ec2/model/DescribeInstanceTypesRequest.h>
 #include <aws/ec2/model/DescribeSpotInstanceRequestsRequest.h>
@@ -15,9 +16,10 @@
 struct NotebookConfig {
     std::string imageId, keyName, keyPath, instanceId, price, notebookUrl,
     publicIp, secGroupName, region, requestId;
-    bool isGpuInstance, deleteStorage;
+    bool isGpuInstance, deleteStorage, hasSystemCredentials;
     int blockSize;
     Aws::EC2::Model::InstanceType instanceType;
+    Aws::Auth::AWSCredentials credentials;
 };
 
 class AwsUtils {
@@ -40,6 +42,7 @@ class AwsUtils {
   Aws::EC2::Model::RequestSpotInstancesResponse RequestInstance(Aws::EC2::Model::RequestSpotLaunchSpecification launch_spec);
   void RunInstanceInstallScripts();
   std::string GetNotebookUrl();
+  bool HasCredentials();
 
 public:
   AwsUtils();
@@ -55,6 +58,7 @@ public:
   void DeleteSecurityGroup();
   std::vector<Aws::String> GetSpotInstanceTypes();
   void ResetConfigParameters();
+  void SetCredentials(std::string access_key_id, std::string secret_key);
 
 };
 

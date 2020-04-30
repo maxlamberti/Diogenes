@@ -11,6 +11,8 @@
 
 #include <aws/core/Aws.h>
 #include <aws/ec2/EC2Client.h>
+#include <aws/core/auth/AWSCredentials.h>
+#include <aws/core/auth/AWSCredentialsProvider.h>
 #include <aws/ec2/model/CreateKeyPairRequest.h>
 #include <aws/ec2/model/DeleteKeyPairRequest.h>
 #include <aws/ec2/model/DescribeImagesRequest.h>
@@ -71,6 +73,7 @@ AwsUtils::AwsUtils() {
     this->notebookConfig.deleteStorage = DEFAULT_DELETE_STORAGE_STATE;
     this->notebookConfig.blockSize = MIN_BLOCK_SIZE;  // GB
     this->notebookConfig.region = DEFAULT_REGION;
+    this->notebookConfig.hasSystemCredentials = this->HasCredentials();
     this->client_config = Aws::Client::ClientConfiguration();
     this->client_config.region = DEFAULT_REGION;
 
@@ -123,9 +126,27 @@ auto AwsUtils::GetSpotInstanceTypes() -> std::vector<Aws::String> {
 
 };
 
+bool AwsUtils::HasCredentials() {
+
+    Aws::Auth::ProfileConfigFileAWSCredentialsProvider provider;
+    bool has_credentials = not provider.GetAWSCredentials().IsEmpty();
+
+    return has_credentials;
+}
+
+void AwsUtils::SetCredentials(std::string access_key_id, std::string secret_key) {
+    this->notebookConfig.credentials = Aws::Auth::AWSCredentials(access_key_id, secret_key);
+}
+
 Aws::EC2::EC2Client AwsUtils::GetClient() {
-    client_config.region = this->notebookConfig.region;
-    Aws::EC2::EC2Client ec2_client(this->client_config);
+
+    Aws::EC2::EC2Client ec2_client;
+    if (this->notebookConfig.hasSystemCredentials) {
+        Aws::EC2::EC2Client ec2_client(this->client_config);
+    } else {
+        Aws::EC2::EC2Client ec2_client(this->notebookConfig.credentials, this->client_config);
+    }
+
     return ec2_client;
 }
 
