@@ -35,7 +35,7 @@ void SelectRegionDialog::OkButtonPressed() {
 }
 
 void SelectRegionDialog::CancelButtonPressed() {
-    this->accept();  // TODO: Exit program
+    QApplication::quit();
 }
 
 SelectRegionDialog::~SelectRegionDialog() {

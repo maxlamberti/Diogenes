@@ -45,7 +45,7 @@ void CredentialsDialog::OkButtonPressed() {
 }
 
 void CredentialsDialog::CancelButtonPressed() {
-    this->accept();  // TODO: Exit program
+    QApplication::quit();
 }
 
 CredentialsDialog::~CredentialsDialog() {

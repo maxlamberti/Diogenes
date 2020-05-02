@@ -12,22 +12,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     AwsUtils aws_utils;
     this->ui->setupUi(this);
-
-    if (not aws_utils.notebookConfig.hasSystemCredentials) {
-        // Ask for credentials if none are found, also queries for region
-        this->credentials_screen = new CredentialsDialog(this, aws_utils.AvailableRegions);
-        this->credentials_screen->setAttribute(Qt::WA_DeleteOnClose);
-        this->credentials_screen->setModal(true);
-        connect(this->credentials_screen, SIGNAL(DataIsSet()),this, SLOT(SetRegionAndCredentials()));
-        this->credentials_screen->open();
-    } else {
-        // Display screen querying for region
-        this->region_screen = new SelectRegionDialog(this, aws_utils.AvailableRegions);
-        this->region_screen->setAttribute(Qt::WA_DeleteOnClose);
-        this->region_screen->setModal(true);
-        connect(this->region_screen, SIGNAL(RegionIsSet()),this, SLOT(SetRegion()));
-        this->region_screen->open();
-    }
+    this->aws_utils.notebookConfig.hasSystemCredentials ? this->OpenRegionScreen() : this->OpenCredentialsScreen();
 
     connect(this->ui->RequestInstanceButton, SIGNAL(released()), this, SLOT(LaunchButtonPressed()));
     connect(this->ui->InstanceTypeComboBox, SIGNAL(currentTextChanged(QString)), this, SLOT(InstanceTypeChanged(QString)));
@@ -36,6 +21,26 @@ MainWindow::MainWindow(QWidget *parent)
     this->ui->InstanceTypeComboBox->setStyleSheet("combobox-popup: 0;");
     this->ui->VolumeSizeLineEdit->setPlaceholderText(QString("Storage Size (8GB Default)"));
 
+}
+
+void MainWindow::OpenCredentialsScreen() {
+
+    // Ask for credentials if none are found, also queries for region
+    this->credentials_screen = new CredentialsDialog(this, aws_utils.AvailableRegions);
+    this->credentials_screen->setAttribute(Qt::WA_DeleteOnClose);
+    this->credentials_screen->setModal(true);
+    connect(this->credentials_screen, SIGNAL(DataIsSet()),this, SLOT(SetRegionAndCredentials()));
+    this->credentials_screen->open();
+}
+
+void MainWindow::OpenRegionScreen() {
+
+    // Display screen querying for region
+    this->region_screen = new SelectRegionDialog(this, aws_utils.AvailableRegions);
+    this->region_screen->setAttribute(Qt::WA_DeleteOnClose);
+    this->region_screen->setModal(true);
+    connect(this->region_screen, SIGNAL(RegionIsSet()),this, SLOT(SetRegion()));
+    this->region_screen->open();
 }
 
 void MainWindow::PopulateInstanceTypeSelection() {

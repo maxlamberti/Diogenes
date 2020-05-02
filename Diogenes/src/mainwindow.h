@@ -33,6 +33,8 @@ private:
     CredentialsDialog *credentials_screen;
     void OpenErrorDialog(const std::string& error);
     int GetStorageSize();
+    void OpenCredentialsScreen();
+    void OpenRegionScreen();
 
 private slots:
     void LaunchButtonPressed();
