@@ -142,9 +142,9 @@ Aws::EC2::EC2Client AwsUtils::GetClient() {
 
     Aws::EC2::EC2Client ec2_client;
     if (this->notebookConfig.hasSystemCredentials) {
-        Aws::EC2::EC2Client ec2_client(this->client_config);
+        ec2_client = Aws::EC2::EC2Client(this->client_config);
     } else {
-        Aws::EC2::EC2Client ec2_client(this->notebookConfig.credentials, this->client_config);
+        ec2_client = Aws::EC2::EC2Client(this->notebookConfig.credentials, this->client_config);
     }
 
     return ec2_client;

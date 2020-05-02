@@ -13,15 +13,22 @@ MainWindow::MainWindow(QWidget *parent)
     AwsUtils aws_utils;
     this->ui->setupUi(this);
 
-    // Display a loading screen that locks main window
-    this->region_screen = new SelectRegionDialog(this, aws_utils.AvailableRegions);
-    this->region_screen->setAttribute(Qt::WA_DeleteOnClose);
-    this->region_screen->setModal(true);
-    this->region_screen->open();
+    if (not aws_utils.notebookConfig.hasSystemCredentials) {
+        // Ask for credentials if none are found, also queries for region
+        this->credentials_screen = new CredentialsDialog(this, aws_utils.AvailableRegions);
+        this->credentials_screen->setAttribute(Qt::WA_DeleteOnClose);
+        this->credentials_screen->setModal(true);
+        connect(this->credentials_screen, SIGNAL(DataIsSet()),this, SLOT(SetRegionAndCredentials()));
+        this->credentials_screen->open();
+    } else {
+        // Display screen querying for region
+        this->region_screen = new SelectRegionDialog(this, aws_utils.AvailableRegions);
+        this->region_screen->setAttribute(Qt::WA_DeleteOnClose);
+        this->region_screen->setModal(true);
+        connect(this->region_screen, SIGNAL(RegionIsSet()),this, SLOT(SetRegion()));
+        this->region_screen->open();
+    }
 
-    // Connect slots and signals: Order conveys priority
-    connect(this->region_screen, SIGNAL(RegionIsSet()),this, SLOT(SetRegion()));  // PRIORITY: connected first
-    connect(this->region_screen, SIGNAL(RegionIsSet()),this, SLOT(PopulateInstanceTypeSelection()));
     connect(this->ui->RequestInstanceButton, SIGNAL(released()), this, SLOT(LaunchButtonPressed()));
     connect(this->ui->InstanceTypeComboBox, SIGNAL(currentTextChanged(QString)), this, SLOT(InstanceTypeChanged(QString)));
 
@@ -40,6 +47,16 @@ void MainWindow::PopulateInstanceTypeSelection() {
 
 void MainWindow::SetRegion() {
     this->aws_utils.notebookConfig.region = this->region_screen->SelectedRegion;
+    this->PopulateInstanceTypeSelection();
+}
+
+void MainWindow::SetRegionAndCredentials() {
+    this->aws_utils.SetCredentials(
+        this->credentials_screen->AccessKeyId,
+        this->credentials_screen->SecretKey
+        );
+    this->aws_utils.notebookConfig.region = this->credentials_screen->SelectedRegion;
+    this->PopulateInstanceTypeSelection();
 }
 
 void MainWindow::OpenErrorDialog(const std::string& error) {
@@ -64,7 +81,7 @@ int MainWindow::GetStorageSize() {
     return storage_size;
 }
 
-void MainWindow::LaunchButtonPressed() {
+void MainWindow::LaunchButtonPressed() {  // TODO: open error screen if instance type not selected
 
     // Get and sanitize storage volume input
     this->aws_utils.notebookConfig.blockSize = this->GetStorageSize();

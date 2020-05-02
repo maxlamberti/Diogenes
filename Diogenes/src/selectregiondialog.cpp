@@ -8,8 +8,12 @@ SelectRegionDialog::SelectRegionDialog(QWidget *parent, std::set<std::string> Av
     AvailableRegions(AvailableRegions) {
 
     ui->setupUi(this);
-    connect(this->ui->ConfirmButton, SIGNAL(released()), this, SLOT(ConfirmButtonPressed()));
 
+    // Connect buttons
+    connect(this->ui->ButtonBox, SIGNAL(accepted()), this, SLOT(OkButtonPressed()));
+    connect(this->ui->ButtonBox, SIGNAL(rejected()), this, SLOT(CancelButtonPressed()));
+
+    // Set up region combo box
     this->ui->RegionComboBox->addItem("Select Region");
     this->PopulateRegionComboBox();
 }
@@ -20,9 +24,7 @@ void SelectRegionDialog::PopulateRegionComboBox() {
     }
 }
 
-void RegionIsSet() {}
-
-void SelectRegionDialog::ConfirmButtonPressed() {
+void SelectRegionDialog::OkButtonPressed() {
     std::string selected_region = this->ui->RegionComboBox->currentText().toStdString().c_str();
     bool is_valid_region = this->AvailableRegions.find(selected_region) != this->AvailableRegions.end();
     if (is_valid_region) {
@@ -30,6 +32,10 @@ void SelectRegionDialog::ConfirmButtonPressed() {
         emit this->RegionIsSet();
         this->accept();
     }
+}
+
+void SelectRegionDialog::CancelButtonPressed() {
+    this->accept();  // TODO: Exit program
 }
 
 SelectRegionDialog::~SelectRegionDialog() {

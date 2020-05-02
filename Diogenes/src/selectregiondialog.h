@@ -22,7 +22,8 @@ private:
     Ui::SelectRegionDialog *ui;
 
 private slots:
-    void ConfirmButtonPressed();
+    void OkButtonPressed();
+    void CancelButtonPressed();
     void PopulateRegionComboBox();
 
 signals:

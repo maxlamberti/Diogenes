@@ -51,6 +51,9 @@ add_executable(${PROJECT_NAME} MACOSX_BUNDLE
         errordialog.cpp
         errordialog.hpp
         errordialog.ui
+        credentialsdialog.cpp
+        credentialsdialog.h
+        credentialsdialog.ui
         AppIcon.icns
         )
 

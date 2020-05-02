@@ -8,8 +8,9 @@
 #include "awsutils.hpp"
 #include "launchdialog.h"
 #include "loadingscreendialog.h"
-#include <selectregiondialog.h>
+#include "selectregiondialog.h"
 #include "errordialog.hpp"
+#include "credentialsdialog.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -29,6 +30,7 @@ private:
     LoadingScreenDialog *loading_screen;
     SelectRegionDialog *region_screen;
     ErrorDialog *error_screen;
+    CredentialsDialog *credentials_screen;
     void OpenErrorDialog(const std::string& error);
     int GetStorageSize();
 
@@ -37,6 +39,7 @@ private slots:
     void InstanceTypeChanged(QString selection);
     void PopulateInstanceTypeSelection();
     void SetRegion();
+    void SetRegionAndCredentials();
 
 };
 #endif // MAINWINDOW_H
